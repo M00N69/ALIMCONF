@@ -61,6 +61,13 @@ if df is not None:
         for activite in activites:
             activite_etablissement_unique.add(activite)
 
+    # Aplatir la colonne filtre
+    filtre_categorie_unique = set()
+    for categories in df['filtre']:
+        if categories is not None:
+            for categorie in categories:
+                filtre_categorie_unique.add(categorie)
+
     # Filtrage par activité
     activite_etablissement = st.sidebar.multiselect(
         "Activité de l'établissement", list(activite_etablissement_unique)
@@ -68,7 +75,7 @@ if df is not None:
 
     # Filtrage par filtre
     filtre_categorie = st.sidebar.multiselect(
-        "Catégorie de filtre", df['filtre'].unique()
+        "Catégorie de filtre", list(filtre_categorie_unique)
     )
 
     # Filtrage par ods_type_activite
@@ -83,7 +90,7 @@ if df is not None:
     # Appliquer les filtres
     df = df[df['synthese_eval_sanit'] == niveau_resultat]
     df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
-    df = df[df['filtre'].isin(filtre_categorie)]
+    df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if x is not None else False)]
     df = df[df['ods_type_activite'].isin(ods_type_activite)]
     df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement)]
     df = df[df['adresse_2_ua'].str.contains(adresse)]
