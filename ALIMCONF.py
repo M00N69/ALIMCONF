@@ -55,27 +55,28 @@ st.sidebar.title('Filtrage')
 # Filtrage par niveau de résultat
 niveau_resultat = st.sidebar.selectbox("Niveau de résultat", ['Très satisfaisant', 'Satisfaisant', 'A améliorer', 'Non conforme'])
 
-# Filtrage par activité
-activite_etablissement = st.sidebar.multiselect(
-    "Activité de l'établissement", df['fields.app_libelle_activite_etablissement'].unique()
-)
+# Vérifier si les données ont été récupérées correctement avant d'afficher les menus
+if df is not None:
+    # Filtrage par activité
+    activite_etablissement = st.sidebar.multiselect(
+        "Activité de l'établissement", df['fields.app_libelle_activite_etablissement'].unique()
+    )
 
-# Filtrage par filtre
-filtre_categorie = st.sidebar.multiselect(
-    "Catégorie de filtre", df['fields.filtre'].unique()
-)
+    # Filtrage par filtre
+    filtre_categorie = st.sidebar.multiselect(
+        "Catégorie de filtre", df['fields.filtre'].unique()
+    )
 
-# Filtrage par ods_type_activite
-ods_type_activite = st.sidebar.multiselect(
-    "Type d'activité", df['fields.ods_type_activite'].unique()
-)
+    # Filtrage par ods_type_activite
+    ods_type_activite = st.sidebar.multiselect(
+        "Type d'activité", df['fields.ods_type_activite'].unique()
+    )
 
-# Recherche par nom d'établissement et adresse
-nom_etablissement = st.sidebar.text_input("Nom de l'établissement")
-adresse = st.sidebar.text_input("Adresse")
+    # Recherche par nom d'établissement et adresse
+    nom_etablissement = st.sidebar.text_input("Nom de l'établissement")
+    adresse = st.sidebar.text_input("Adresse")
 
-# Appliquer les filtres
-if df is not None:  # Vérifier si les données ont été récupérées correctement
+    # Appliquer les filtres
     df = df[df['fields.synthese_eval_sanit'] == niveau_resultat]
     df = df[df['fields.app_libelle_activite_etablissement'].isin(activite_etablissement)]
     df = df[df['fields.filtre'].isin(filtre_categorie)]
