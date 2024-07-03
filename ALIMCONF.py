@@ -51,7 +51,10 @@ if df is not None:
     # Filtrage
     st.sidebar.title('Filtrage')
 
-    niveau_resultat = st.sidebar.selectbox("Niveau de résultat", ['Tous'] + df['synthese_eval_sanit'].unique().tolist())
+    # Liste complète des niveaux de résultat possibles
+    all_levels = ['Tous', 'Très satisfaisant', 'Satisfaisant', 'A améliorer', 'A corriger de manière urgente']
+    
+    niveau_resultat = st.sidebar.selectbox("Niveau de résultat", all_levels)
 
     activite_etablissement_unique = set()
     for activites in df['app_libelle_activite_etablissement']:
