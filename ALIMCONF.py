@@ -63,7 +63,7 @@ if df is not None:
 
     # Aplatir la colonne filtre
     filtre_categorie_unique = set()
-    for categories in df['fields.filtre']:  # Correction: Utiliser 'fields.filtre' (sans le 's')
+    for categories in df['filtre']:  # Correction: Utiliser 'filtre' (sans 'fields.')
         if categories is not None:
             for categorie in categories:
                 filtre_categorie_unique.add(categorie)
@@ -90,7 +90,7 @@ if df is not None:
     # Appliquer les filtres
     df = df[df['synthese_eval_sanit'] == niveau_resultat]
     df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
-    df = df[df['fields.filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if x is not None else False)]  # Correction: Utiliser 'fields.filtre'
+    df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if x is not None else False)]  # Correction: Utiliser 'filtre' (sans 'fields.')
     df = df[df['ods_type_activite'].isin(ods_type_activite)]
     df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement)]
     df = df[df['adresse_2_ua'].str.contains(adresse)]
