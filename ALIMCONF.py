@@ -11,16 +11,14 @@ def get_data_from_api(year, month=None):
     response = requests.get(url)
     data = response.json()
     
-    # Vérifier si la clé "records" existe dans la réponse
-    if 'records' in data:
-        df = pd.DataFrame(data['records'])
-    elif 'data' in data: # Adapter le code si la clé est "data"
-        df = pd.DataFrame(data['data'])
+    # Vérifier si la clé "results" existe dans la réponse
+    if 'results' in data:
+        df = pd.DataFrame(data['results'])
     else:
         st.error("Erreur : format de réponse JSON incorrect.")
         return None
 
-    df['date_inspection'] = pd.to_datetime(df['fields.date_inspection'])
+    df['date_inspection'] = pd.to_datetime(df['date_inspection'])
     return df
 
 # Fonction pour créer la carte interactive
@@ -31,15 +29,15 @@ def create_map(df):
 
     # Créer des marqueurs pour chaque site
     for index, row in df.iterrows():
-        if row['fields.geores'] is not None:
-            latitude = row['fields.geores']['coordinates'][1]
-            longitude = row['fields.geores']['coordinates'][0]
-            tooltip = row['fields.app_libelle_etablissement']
+        if row['geores'] is not None:
+            latitude = row['geores']['lat']
+            longitude = row['geores']['lon']
+            tooltip = row['app_libelle_etablissement']
             folium.Marker(
                 location=[latitude, longitude],
-                popup=row['fields.app_libelle_etablissement'],
+                popup=row['app_libelle_etablissement'],
                 tooltip=tooltip,
-                icon=folium.Icon(color='green' if row['fields.synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['fields.synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['fields.synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
+                icon=folium.Icon(color='green' if row['synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
             ).add_to(map)
 
     return map
@@ -59,17 +57,17 @@ niveau_resultat = st.sidebar.selectbox("Niveau de résultat", ['Très satisfaisa
 if df is not None:
     # Filtrage par activité
     activite_etablissement = st.sidebar.multiselect(
-        "Activité de l'établissement", df['fields.app_libelle_activite_etablissement'].unique()
+        "Activité de l'établissement", df['app_libelle_activite_etablissement'].unique()
     )
 
     # Filtrage par filtre
     filtre_categorie = st.sidebar.multiselect(
-        "Catégorie de filtre", df['fields.filtre'].unique()
+        "Catégorie de filtre", df['filtre'].unique()
     )
 
     # Filtrage par ods_type_activite
     ods_type_activite = st.sidebar.multiselect(
-        "Type d'activité", df['fields.ods_type_activite'].unique()
+        "Type d'activité", df['ods_type_activite'].unique()
     )
 
     # Recherche par nom d'établissement et adresse
@@ -77,12 +75,12 @@ if df is not None:
     adresse = st.sidebar.text_input("Adresse")
 
     # Appliquer les filtres
-    df = df[df['fields.synthese_eval_sanit'] == niveau_resultat]
-    df = df[df['fields.app_libelle_activite_etablissement'].isin(activite_etablissement)]
-    df = df[df['fields.filtre'].isin(filtre_categorie)]
-    df = df[df['fields.ods_type_activite'].isin(ods_type_activite)]
-    df = df[df['fields.app_libelle_etablissement'].str.contains(nom_etablissement)]
-    df = df[df['fields.adresse_2_ua'].str.contains(adresse)]
+    df = df[df['synthese_eval_sanit'] == niveau_resultat]
+    df = df[df['app_libelle_activite_etablissement'].isin(activite_etablissement)]
+    df = df[df['filtre'].isin(filtre_categorie)]
+    df = df[df['ods_type_activite'].isin(ods_type_activite)]
+    df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement)]
+    df = df[df['adresse_2_ua'].str.contains(adresse)]
 
     # Afficher la carte interactive
     st.map(create_map(df))
