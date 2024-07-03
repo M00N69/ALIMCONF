@@ -63,7 +63,7 @@ if df is not None:
 
     # Aplatir la colonne filtre
     filtre_categorie_unique = set()
-    for categories in df['fields.filtre']:  # Correction: Utiliser 'fields.filtre'
+    for categories in df['fields.filtre']:  # Correction: Utiliser 'fields.filtre' (sans le 's')
         if categories is not None:
             for categorie in categories:
                 filtre_categorie_unique.add(categorie)
