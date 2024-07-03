@@ -55,9 +55,15 @@ niveau_resultat = st.sidebar.selectbox("Niveau de résultat", ['Très satisfaisa
 
 # Vérifier si les données ont été récupérées correctement avant d'afficher les menus
 if df is not None:
+    # Aplatir la colonne app_libelle_activite_etablissement
+    activite_etablissement_unique = set()
+    for activites in df['app_libelle_activite_etablissement']:
+        for activite in activites:
+            activite_etablissement_unique.add(activite)
+
     # Filtrage par activité
     activite_etablissement = st.sidebar.multiselect(
-        "Activité de l'établissement", df['app_libelle_activite_etablissement'].unique()
+        "Activité de l'établissement", list(activite_etablissement_unique)
     )
 
     # Filtrage par filtre
@@ -76,7 +82,7 @@ if df is not None:
 
     # Appliquer les filtres
     df = df[df['synthese_eval_sanit'] == niveau_resultat]
-    df = df[df['app_libelle_activite_etablissement'].isin(activite_etablissement)]
+    df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
     df = df[df['filtre'].isin(filtre_categorie)]
     df = df[df['ods_type_activite'].isin(ods_type_activite)]
     df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement)]
