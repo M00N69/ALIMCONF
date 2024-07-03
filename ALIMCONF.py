@@ -10,7 +10,16 @@ def get_data_from_api(year, month=None):
         url += f"&refine=date_inspection%3A%22{year}-{month:02}%22"
     response = requests.get(url)
     data = response.json()
-    df = pd.DataFrame(data['records'])
+    
+    # Vérifier si la clé "records" existe dans la réponse
+    if 'records' in data:
+        df = pd.DataFrame(data['records'])
+    elif 'data' in data: # Adapter le code si la clé est "data"
+        df = pd.DataFrame(data['data'])
+    else:
+        st.error("Erreur : format de réponse JSON incorrect.")
+        return None
+
     df['date_inspection'] = pd.to_datetime(df['fields.date_inspection'])
     return df
 
@@ -66,19 +75,20 @@ nom_etablissement = st.sidebar.text_input("Nom de l'établissement")
 adresse = st.sidebar.text_input("Adresse")
 
 # Appliquer les filtres
-df = df[df['fields.synthese_eval_sanit'] == niveau_resultat]
-df = df[df['fields.app_libelle_activite_etablissement'].isin(activite_etablissement)]
-df = df[df['fields.filtre'].isin(filtre_categorie)]
-df = df[df['fields.ods_type_activite'].isin(ods_type_activite)]
-df = df[df['fields.app_libelle_etablissement'].str.contains(nom_etablissement)]
-df = df[df['fields.adresse_2_ua'].str.contains(adresse)]
+if df is not None:  # Vérifier si les données ont été récupérées correctement
+    df = df[df['fields.synthese_eval_sanit'] == niveau_resultat]
+    df = df[df['fields.app_libelle_activite_etablissement'].isin(activite_etablissement)]
+    df = df[df['fields.filtre'].isin(filtre_categorie)]
+    df = df[df['fields.ods_type_activite'].isin(ods_type_activite)]
+    df = df[df['fields.app_libelle_etablissement'].str.contains(nom_etablissement)]
+    df = df[df['fields.adresse_2_ua'].str.contains(adresse)]
 
-# Afficher la carte interactive
-st.map(create_map(df))
+    # Afficher la carte interactive
+    st.map(create_map(df))
 
-# Afficher les informations détaillées
-st.write(df)
+    # Afficher les informations détaillées
+    st.write(df)
 
-# Permettre de télécharger les données filtrées
-csv = df.to_csv(index=False)
-st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
+    # Permettre de télécharger les données filtrées
+    csv = df.to_csv(index=False)
+    st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
