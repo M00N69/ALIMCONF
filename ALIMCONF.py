@@ -61,7 +61,7 @@ if df is not None:
         for activite in activites:
             activite_etablissement_unique.add(activite)
 
-    # **Filtrer par 'fields.filtre' en utilisant une fonction d'application**
+    # Filtrer par 'fields.filtre' en utilisant une fonction d'application
     filtre_categorie_unique = set()
     for row in df.itertuples():
         if hasattr(row, 'fields.filtre'):
@@ -91,8 +91,8 @@ if df is not None:
     # Appliquer les filtres
     df = df[df['synthese_eval_sanit'] == niveau_resultat]
     df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
-    # **Corriger le nom de la colonne et gérer les valeurs nulles**
     df = df[df.apply(lambda row: any(item in row['fields.filtre'] for item in filtre_categorie) if isinstance(row['fields.filtre'], list) else False, axis=1)]
+    # **Important: Use the correct column name from the JSON**
     df = df[df['ods_type_activite'].isin(ods_type_activite)]
     df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement)]
     df = df[df['adresse_2_ua'].str.contains(adresse)]
