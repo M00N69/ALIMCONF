@@ -2,16 +2,16 @@ import streamlit as st
 import pandas as pd
 import requests
 import folium
+from streamlit_folium import folium_static
 
 # Fonction pour récupérer les données de l'API
 def get_data_from_api(year, month=None):
-    url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=20&refine=date_inspection%3A%22{year}%22"
+    url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=100&refine=date_inspection%3A%22{year}%22"
     if month is not None:
         url += f"&refine=date_inspection%3A%22{year}-{month:02}%22"
     response = requests.get(url)
     data = response.json()
     
-    # Vérifier si la clé "results" existe dans la réponse
     if 'results' in data:
         df = pd.DataFrame(data['results'])
     else:
@@ -23,12 +23,10 @@ def get_data_from_api(year, month=None):
 
 # Fonction pour créer la carte interactive
 def create_map(df):
-    # Créer une carte centrée sur la France
     map_center = [46.2276, 2.2137]
     map = folium.Map(location=map_center, zoom_start=6)
 
-    # Créer des marqueurs pour chaque site
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         if row['geores'] is not None:
             latitude = row['geores']['lat']
             longitude = row['geores']['lon']
@@ -42,67 +40,74 @@ def create_map(df):
 
     return map
 
+# Interface utilisateur Streamlit
+st.title('Données AlimConfiance')
+
 # Récupérer les données de l'API
-year = st.sidebar.selectbox("Année d'inspection", [2024, 2023])  # Ajouter d'autres années si nécessaire
+year = st.sidebar.selectbox("Année d'inspection", [2024, 2023])
 month = st.sidebar.selectbox("Mois d'inspection", range(1, 13), format_func=lambda x: f"{x:02}")
 df = get_data_from_api(year, month)
 
-# Créer le menu latéral
-st.sidebar.title('Filtrage')
-
-# Filtrage par niveau de résultat
-niveau_resultat = st.sidebar.selectbox("Niveau de résultat", ['Très satisfaisant', 'Satisfaisant', 'A améliorer', 'Non conforme'])
-
-# Vérifier si les données ont été récupérées correctement avant d'afficher les menus
 if df is not None:
-    # Aplatir la colonne app_libelle_activite_etablissement
+    # Filtrage
+    st.sidebar.title('Filtrage')
+
+    niveau_resultat = st.sidebar.selectbox("Niveau de résultat", ['Tous'] + df['synthese_eval_sanit'].unique().tolist())
+
     activite_etablissement_unique = set()
     for activites in df['app_libelle_activite_etablissement']:
-        for activite in activites:
-            activite_etablissement_unique.add(activite)
+        activite_etablissement_unique.update(activites)
 
-    # Filtrer par 'fields.filtre' en utilisant une fonction d'application
-    filtre_categorie_unique = set()
-    for row in df.itertuples():
-        if hasattr(row, 'fields.filtre'):
-            if isinstance(row['fields.filtre'], list):
-                for categorie in row['fields.filtre']:
-                    filtre_categorie_unique.add(categorie)
-
-    # Filtrage par activité
     activite_etablissement = st.sidebar.multiselect(
         "Activité de l'établissement", list(activite_etablissement_unique)
     )
 
-    # Filtrage par filtre
+    filtre_categorie_unique = set()
+    for filtres in df['filtre']:
+        if isinstance(filtres, list):
+            filtre_categorie_unique.update(filtres)
+
     filtre_categorie = st.sidebar.multiselect(
         "Catégorie de filtre", list(filtre_categorie_unique)
     )
 
-    # Filtrage par ods_type_activite
     ods_type_activite = st.sidebar.multiselect(
         "Type d'activité", df['ods_type_activite'].unique()
     )
 
-    # Recherche par nom d'établissement et adresse
     nom_etablissement = st.sidebar.text_input("Nom de l'établissement")
     adresse = st.sidebar.text_input("Adresse")
 
     # Appliquer les filtres
-    df = df[df['synthese_eval_sanit'] == niveau_resultat]
-    df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
-    df = df[df.apply(lambda row: any(item in row['fields.filtre'] for item in filtre_categorie) if isinstance(row['fields.filtre'], list) else False, axis=1)]
-    # **Important: Use the correct column name from the JSON**
-    df = df[df['ods_type_activite'].isin(ods_type_activite)]
-    df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement)]
-    df = df[df['adresse_2_ua'].str.contains(adresse)]
+    if niveau_resultat != 'Tous':
+        df = df[df['synthese_eval_sanit'] == niveau_resultat]
+    
+    if activite_etablissement:
+        df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
+    
+    if filtre_categorie:
+        df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if isinstance(x, list) else False)]
+    
+    if ods_type_activite:
+        df = df[df['ods_type_activite'].isin(ods_type_activite)]
+    
+    if nom_etablissement:
+        df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement, case=False)]
+    
+    if adresse:
+        df = df[df['adresse_2_ua'].str.contains(adresse, case=False)]
 
     # Afficher la carte interactive
-    st.map(create_map(df))
+    st.subheader('Carte des établissements')
+    map = create_map(df)
+    folium_static(map)
 
     # Afficher les informations détaillées
+    st.subheader('Données détaillées')
     st.write(df)
 
     # Permettre de télécharger les données filtrées
     csv = df.to_csv(index=False)
     st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
+else:
+    st.error("Impossible de récupérer les données. Veuillez réessayer plus tard.")
