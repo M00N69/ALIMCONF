@@ -4,10 +4,12 @@ import requests
 import folium
 
 # Fonction pour récupérer les données de l'API
-def get_data_from_api(year, month=None):
+def get_data_from_api(year, month=None, filtre=None):
     url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=20&refine=date_inspection%3A%22{year}%22"
     if month is not None:
         url += f"&refine=date_inspection%3A%22{year}-{month:02}%22"
+    if filtre is not None:
+        url += f"&refine=filtre%3A%22{filtre}%22"
     response = requests.get(url)
     data = response.json()
     
@@ -63,7 +65,7 @@ if df is not None:
 
     # Aplatir la colonne filtre
     filtre_categorie_unique = set()
-    for categories in df['fields.filtre']:  # Correction: Utiliser 'fields.filtre' (sans le 's')
+    for categories in df['filtre']:
         if categories is not None:
             for categorie in categories:
                 filtre_categorie_unique.add(categorie)
@@ -90,7 +92,7 @@ if df is not None:
     # Appliquer les filtres
     df = df[df['synthese_eval_sanit'] == niveau_resultat]
     df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
-    df = df[df['fields.filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if x is not None else False)]  # Correction: Utiliser 'fields.filtre'
+    df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if x is not None else False)]
     df = df[df['ods_type_activite'].isin(ods_type_activite)]
     df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement)]
     df = df[df['adresse_2_ua'].str.contains(adresse)]
