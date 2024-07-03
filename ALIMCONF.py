@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import requests
 import folium
-from streamlit_folium import folium_static
 
 # Fonction pour récupérer les données de l'API
 def get_data_from_api(year, month=None):
@@ -100,7 +99,7 @@ if df is not None:
     # Afficher la carte interactive
     st.subheader('Carte des établissements')
     map = create_map(df)
-    folium_static(map)
+    st.components.v1.html(map._repr_html_(), width=700, height=500)
 
     # Afficher les informations détaillées
     st.subheader('Données détaillées')
