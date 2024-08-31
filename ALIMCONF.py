@@ -2,6 +2,26 @@ import streamlit as st
 import pandas as pd
 import requests
 import folium
+from streamlit_folium import folium_static
+import plotly.express as px
+
+# Application de styles CSS personnalisés
+st.markdown(
+    """
+    <style>
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 8px;
+    }
+    .stTextInput>div>div>input {
+        border: 2px solid #4CAF50;
+        border-radius: 4px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # Fonction pour récupérer les données de l'API
 def get_data_from_api(year, month=None):
@@ -34,7 +54,13 @@ def create_map(df):
                 location=[latitude, longitude],
                 popup=row['app_libelle_etablissement'],
                 tooltip=tooltip,
-                icon=folium.Icon(color='green' if row['synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
+                icon=folium.Icon(
+                    color='green' if row['synthese_eval_sanit'] == 'Très satisfaisant' else 
+                          'orange' if row['synthese_eval_sanit'] == 'Satisfaisant' else 
+                          'red' if row['synthese_eval_sanit'] == 'A améliorer' else 'black',
+                    icon='star',
+                    prefix='fa'
+                )
             ).add_to(map)
 
     return map
@@ -42,41 +68,43 @@ def create_map(df):
 # Interface utilisateur Streamlit
 st.title('Données AlimConfiance')
 
-# Récupérer les données de l'API
-year = st.sidebar.selectbox("Année d'inspection", [2024, 2023])
-month = st.sidebar.selectbox("Mois d'inspection", range(1, 13), format_func=lambda x: f"{x:02}")
-df = get_data_from_api(year, month)
+# Récupérer les données de l'API avec indicateur de chargement
+with st.spinner('Chargement des données...'):
+    year = st.sidebar.selectbox("Année d'inspection", [2024, 2023])
+    month = st.sidebar.selectbox("Mois d'inspection", range(1, 13), format_func=lambda x: f"{x:02}")
+    df = get_data_from_api(year, month)
 
 if df is not None:
     # Filtrage
     st.sidebar.title('Filtrage')
 
-    # Liste complète des niveaux de résultat possibles
+    # Niveau de résultat
     all_levels = ['Tous', 'Très satisfaisant', 'Satisfaisant', 'A améliorer', 'A corriger de manière urgente']
-    
     niveau_resultat = st.sidebar.selectbox("Niveau de résultat", all_levels)
 
+    # Activité de l'établissement
     activite_etablissement_unique = set()
     for activites in df['app_libelle_activite_etablissement']:
         activite_etablissement_unique.update(activites)
-
     activite_etablissement = st.sidebar.multiselect(
-        "Activité de l'établissement", list(activite_etablissement_unique)
+        "Activité de l'établissement", sorted(activite_etablissement_unique)
     )
 
+    # Catégorie de filtre
     filtre_categorie_unique = set()
     for filtres in df['filtre']:
         if isinstance(filtres, list):
             filtre_categorie_unique.update(filtres)
-
     filtre_categorie = st.sidebar.multiselect(
-        "Catégorie de filtre", list(filtre_categorie_unique)
+        "Catégorie de filtre", sorted(filtre_categorie_unique)
     )
 
+    # Type d'activité
     ods_type_activite = st.sidebar.multiselect(
-        "Type d'activité", df['ods_type_activite'].unique()
+        "Type d'activité", sorted(df['ods_type_activite'].unique())
     )
 
+    # Recherche par nom et adresse
     nom_etablissement = st.sidebar.text_input("Nom de l'établissement")
     adresse = st.sidebar.text_input("Adresse")
 
@@ -99,14 +127,19 @@ if df is not None:
     if adresse:
         df = df[df['adresse_2_ua'].str.contains(adresse, case=False)]
 
-    # Afficher la carte interactive
+    # Afficher la carte interactive avec Streamlit-Folium
     st.subheader('Carte des établissements')
     map = create_map(df)
-    st.components.v1.html(map._repr_html_(), width=700, height=500)
+    folium_static(map, width=700, height=500)
 
-    # Afficher les informations détaillées
+    # Afficher les informations détaillées avec un graphique interactif
     st.subheader('Données détaillées')
     st.write(df)
+
+    # Visualisation des résultats par niveau de satisfaction
+    st.subheader('Répartition des évaluations sanitaires')
+    fig = px.pie(df, names='synthese_eval_sanit', title='Répartition des évaluations sanitaires')
+    st.plotly_chart(fig)
 
     # Permettre de télécharger les données filtrées
     csv = df.to_csv(index=False)
