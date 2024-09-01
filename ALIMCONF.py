@@ -13,8 +13,14 @@ def get_data():
     df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], format='%Y-%m-%dT%H:%M:%S%z')
     return df
 
+# Fonction pour convertir les coordonnées en float de manière sûre
+def safe_float(value):
+    try:
+        return float(value.strip())
+    except (ValueError, AttributeError):
+        return None
+
 # Fonction pour créer des graphiques en camembert et en barres
-@st.cache_data(ttl=3600)
 def create_pie_chart(data, labels, title):
     fig, ax = plt.subplots()
     ax.pie(data, labels=labels, autopct='%1.1f%%', startangle=90)
@@ -22,7 +28,6 @@ def create_pie_chart(data, labels, title):
     plt.title(title)
     return fig
 
-@st.cache_data(ttl=3600)
 def create_bar_chart(data, title, x_label, y_label):
     fig, ax = plt.subplots()
     ax.bar(data.index.astype(str), data.values)
