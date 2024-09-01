@@ -84,11 +84,17 @@ def create_map(df):
                 longitude = safe_float(coords[1])
                 if latitude is not None and longitude is not None:
                     tooltip = row['APP_Libelle_etablissement']
+                    # Customize the icon with better visibility
                     folium.Marker(
                         location=[latitude, longitude],
                         popup=row['APP_Libelle_etablissement'],
                         tooltip=tooltip,
-                        icon=folium.Icon(color='red', icon='exclamation-sign', prefix='fa')
+                        icon=folium.Icon(
+                            color='white',  # Background color
+                            icon_color='red',  # Icon color
+                            icon='exclamation-triangle',  # Different FontAwesome icon for better visibility
+                            prefix='fa'
+                        )
                     ).add_to(map)
 
     return map
