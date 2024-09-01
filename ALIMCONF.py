@@ -13,36 +13,8 @@ def get_data():
     df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], format='%Y-%m-%dT%H:%M:%S%z')
     return df
 
-# Fonction pour convertir les coordonnées en float de manière sûre
-def safe_float(value):
-    try:
-        return float(value.strip())
-    except (ValueError, AttributeError):
-        return None
-
-# Fonction pour créer la carte interactive
-def create_map(df):
-    map_center = [46.2276, 2.2137]
-    map = folium.Map(location=map_center, zoom_start=6)
-
-    for _, row in df.iterrows():
-        if pd.notna(row['geores']) and isinstance(row['geores'], str):
-            coords = row['geores'].split(',')
-            if len(coords) == 2:
-                latitude = safe_float(coords[0])
-                longitude = safe_float(coords[1])
-                if latitude is not None and longitude is not None:
-                    tooltip = row['APP_Libelle_etablissement']
-                    folium.Marker(
-                        location=[latitude, longitude],
-                        popup=row['APP_Libelle_etablissement'],
-                        tooltip=tooltip,
-                        icon=folium.Icon(color='red', icon='exclamation-sign', prefix='fa')
-                    ).add_to(map)
-
-    return map
-
 # Fonction pour créer des graphiques en camembert et en barres
+@st.cache_data(ttl=3600)
 def create_pie_chart(data, labels, title):
     fig, ax = plt.subplots()
     ax.pie(data, labels=labels, autopct='%1.1f%%', startangle=90)
@@ -50,9 +22,10 @@ def create_pie_chart(data, labels, title):
     plt.title(title)
     return fig
 
+@st.cache_data(ttl=3600)
 def create_bar_chart(data, title, x_label, y_label):
     fig, ax = plt.subplots()
-    ax.bar(data.index, data.values)
+    ax.bar(data.index.astype(str), data.values)
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -117,7 +90,23 @@ if selected_activite != 'Tous':
 if page == "Carte des établissements":
     # Afficher la carte interactive
     st.subheader('Carte des établissements')
-    map = create_map(df_filtered)
+    map = folium.Map(location=[46.2276, 2.2137], zoom_start=6)
+
+    for _, row in df_filtered.iterrows():
+        if pd.notna(row['geores']) and isinstance(row['geores'], str):
+            coords = row['geores'].split(',')
+            if len(coords) == 2:
+                latitude = safe_float(coords[0])
+                longitude = safe_float(coords[1])
+                if latitude is not None and longitude is not None:
+                    tooltip = row['APP_Libelle_etablissement']
+                    folium.Marker(
+                        location=[latitude, longitude],
+                        popup=row['APP_Libelle_etablissement'],
+                        tooltip=tooltip,
+                        icon=folium.Icon(color='red', icon='exclamation-sign', prefix='fa')
+                    ).add_to(map)
+
     st.components.v1.html(map._repr_html_(), width=1200, height=600)
 
     # Afficher les informations détaillées
