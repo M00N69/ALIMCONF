@@ -9,27 +9,30 @@ CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/expor
 # Fonction pour charger les données depuis le CSV
 @st.cache_data
 def load_data():
-    # Charger les données
     df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
 
-    # Vérifier le type de données avant conversion
+    # Afficher un aperçu des données avant toute manipulation
+    st.write("Aperçu des données avant manipulation:", df.head())
+
+    # Afficher les types de colonnes avant conversion
     st.write("Types de données avant conversion:", df.dtypes)
 
-    # Tenter la conversion en datetime
-    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce')
+    # Convertir la colonne 'Date_inspection' en datetime
+    try:
+        df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce')
+    except Exception as e:
+        st.error(f"Erreur lors de la conversion de 'Date_inspection': {e}")
 
-    # Vérifier les types après conversion
+    # Vérifier les types de données après conversion
     st.write("Types de données après conversion:", df.dtypes)
 
-    # Vérifier s'il y a des valeurs non converties
-    if df['Date_inspection'].isnull().any():
-        st.warning("Certaines dates n'ont pas pu être converties en datetime:")
-        st.write(df[df['Date_inspection'].isnull()])
+    # Afficher les dates non converties correctement
+    st.write("Dates non converties (NaT):", df[df['Date_inspection'].isnull()])
 
-    # Supprimer les lignes où la conversion en datetime a échoué
+    # Supprimer les lignes avec des dates non converties
     df = df.dropna(subset=['Date_inspection'])
 
-    # Extraire la partie date seulement (sans l'heure)
+    # Extraire uniquement la date (sans l'heure)
     df['Date_inspection'] = df['Date_inspection'].dt.date
 
     return df
@@ -39,7 +42,7 @@ st.title('Données AlimConfiance')
 df = load_data()
 
 # Vérification des données chargées
-st.write("Aperçu des données:", df.head())
+st.write("Aperçu des données après manipulation:", df.head())
 
 if not df.empty:
     # Filtrer sur le dernier mois et "A améliorer"
