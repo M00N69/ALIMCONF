@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 def get_data():
     url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
     df = pd.read_csv(url, sep=";")
-    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'])
+    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], format='%Y-%m-%dT%H:%M:%S%z')
     return df
 
 # Fonction pour créer la carte interactive
@@ -49,8 +49,12 @@ selected_start, selected_end = st.select_slider(
     format_func=lambda x: x.strftime('%B %Y')
 )
 
+# Convertir les dates sélectionnées en datetime
+selected_start = pd.to_datetime(selected_start).tz_localize('UTC')
+selected_end = pd.to_datetime(selected_end).tz_localize('UTC') + relativedelta(months=1) - timedelta(days=1)
+
 # Filtrer les données en fonction de la plage de dates sélectionnée
-df_filtered = df[(df['Date_inspection'] >= selected_start) & (df['Date_inspection'] <= selected_end + relativedelta(months=1) - timedelta(days=1))]
+df_filtered = df[(df['Date_inspection'] >= selected_start) & (df['Date_inspection'] <= selected_end)]
 
 # Filtrer les inspections "à améliorer"
 df_a_ameliorer = df_filtered[df_filtered['Synthese_eval_sanit'] == 'A améliorer']
@@ -69,9 +73,11 @@ csv = df_a_ameliorer.to_csv(index=False)
 st.download_button("Télécharger les données", csv, file_name="data_a_ameliorer.csv", mime="text/csv")
 
 # Afficher la fiche complète d'un site sélectionné
-selected_site = st.selectbox("Sélectionner un site", df_a_ameliorer['APP_Libelle_etablissement'])
-selected_site_data = df_a_ameliorer[df_a_ameliorer['APP_Libelle_etablissement'] == selected_site].iloc[0]
-st.subheader('Fiche complète du site sélectionné')
-st.write(selected_site_data)
-
+if not df_a_ameliorer.empty:
+    selected_site = st.selectbox("Sélectionner un site", df_a_ameliorer['APP_Libelle_etablissement'])
+    selected_site_data = df_a_ameliorer[df_a_ameliorer['APP_Libelle_etablissement'] == selected_site].iloc[0]
+    st.subheader('Fiche complète du site sélectionné')
+    st.write(selected_site_data)
+else:
+    st.write("Aucun établissement à améliorer trouvé dans la période sélectionnée.")
 
