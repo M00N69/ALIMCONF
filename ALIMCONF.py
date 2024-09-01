@@ -9,11 +9,8 @@ CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/expor
 # Fonction pour charger les données depuis le CSV
 @st.cache_data
 def load_data():
-    # Chargement des données sans parse_dates pour commencer
+    # Chargement des données
     df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
-
-    # Afficher les premières lignes pour vérifier la structure
-    st.write("Aperçu des données chargées :", df.head())
 
     # Renommer les colonnes pour correspondre à ce qui est attendu
     df.rename(columns={
@@ -33,7 +30,7 @@ def load_data():
     }, inplace=True)
 
     # Conversion des dates
-    df['date_inspection'] = pd.to_datetime(df['date_inspection'])
+    df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce')
 
     # Conversion des coordonnées géographiques en dictionnaires
     df['geores'] = df['geores'].apply(lambda x: {'lat': float(x.split(',')[0]), 'lon': float(x.split(',')[1])} if pd.notnull(x) else None)
@@ -44,7 +41,7 @@ def load_data():
 st.title('Données AlimConfiance')
 df = load_data()
 
-# Filtrer par plage de dates
+# Conversion des dates sélectionnées en datetime
 start_date, end_date = st.sidebar.date_input(
     "Sélectionnez la période d'inspection",
     value=[pd.to_datetime("2023-01-01"), pd.to_datetime("2024-12-31")],
@@ -52,7 +49,12 @@ start_date, end_date = st.sidebar.date_input(
     max_value=pd.to_datetime("2024-12-31")
 )
 
-df = df[(df['date_inspection'] >= pd.to_datetime(start_date)) & (df['date_inspection'] <= pd.to_datetime(end_date))]
+# Convertir start_date et end_date en datetime (au cas où ils seraient des objets date)
+start_date = pd.to_datetime(start_date)
+end_date = pd.to_datetime(end_date)
+
+# Filtrer les données en fonction des dates
+df = df[(df['date_inspection'] >= start_date) & (df['date_inspection'] <= end_date)]
 
 if not df.empty:
     # Filtrage supplémentaire
@@ -126,3 +128,4 @@ if not df.empty:
     st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
 else:
     st.error("Aucune donnée disponible pour la période sélectionnée.")
+
