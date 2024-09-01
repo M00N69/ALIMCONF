@@ -10,7 +10,8 @@ from dateutil.relativedelta import relativedelta
 def get_data():
     url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
     df = pd.read_csv(url, sep=";")
-    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], format='%Y-%m-%dT%H:%M:%S%z')
+    # Convertir Date_inspection en datetime
+    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce', format='%Y-%m-%dT%H:%M:%S%z')
     return df
 
 # Fonction pour convertir les coordonnées en float de manière sûre
@@ -91,6 +92,10 @@ if selected_ods_type != 'Tous':
 if selected_activite != 'Tous':
     df_filtered = df_filtered[df_filtered['APP_Libelle_activite_etablissement'] == selected_activite]
 
+# Assurer que 'Date_inspection' est bien au format datetime avant d'accéder à .dt
+df_filtered = df_filtered.dropna(subset=['Date_inspection'])
+df_filtered['Date_inspection'] = pd.to_datetime(df_filtered['Date_inspection'], errors='coerce')
+
 # Logique pour afficher la page sélectionnée
 if page == "Carte des établissements":
     # Afficher la carte interactive
@@ -123,6 +128,9 @@ if page == "Carte des établissements":
     st.download_button("Télécharger les données", csv, file_name="data_filtered.csv", mime="text/csv")
 
 elif page == "Statistiques":
+    # Assurez-vous que la colonne Date_inspection est correctement convertie en datetime
+    df_filtered['month'] = df_filtered['Date_inspection'].dt.to_period('M')
+
     # Graphique en camembert pour la Synthèse d'évaluation sanitaire
     synthese_counts = df_filtered['Synthese_eval_sanit'].value_counts()
     fig1 = create_pie_chart(synthese_counts.values, synthese_counts.index, "Répartition des Synthèses d'évaluation sanitaire")
@@ -132,7 +140,6 @@ elif page == "Statistiques":
     fig2 = create_pie_chart(activite_counts.values, activite_counts.index, "Répartition des Types d'activité")
 
     # Graphique en barres pour "A corriger immédiatement" et "A améliorer"
-    df_filtered['month'] = df_filtered['Date_inspection'].dt.to_period('M')
     correction_counts = df_filtered[df_filtered['Synthese_eval_sanit'].isin(['A corriger immédiatement', 'A améliorer'])].groupby(['month', 'Synthese_eval_sanit']).size().unstack().fillna(0)
     fig3 = create_bar_chart(correction_counts, "Évaluations par mois", "Mois", "Nombre d'évaluations")
 
