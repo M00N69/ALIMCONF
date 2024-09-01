@@ -11,8 +11,9 @@ CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/expor
 def load_data():
     df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
 
-    # Renommer les colonnes pour correspondre à ce qui est attendu
+    # Renommer les colonnes pour correspondre à ce qui est attendu dans le code
     df.rename(columns={
+        'APP_Libelle_etablissement': 'app_libelle_etablissement',
         'Date_inspection': 'date_inspection',
         'Libelle_commune': 'libelle_commune',
         'SIRET': 'siret',
@@ -87,7 +88,7 @@ if not df.empty:
         if row['geores'] is not None:
             folium.Marker(
                 location=[row['geores']['lat'], row['geores']['lon']],
-                popup=row['app_libelle_etablissement'],
+                popup=row['app_libelle_etablissement'],  # Assurez-vous que cette colonne existe
                 tooltip=row['app_libelle_etablissement'],
                 icon=folium.Icon(
                     color='green' if row['synthese_eval_sanit'] == 'Très satisfaisant' else 
@@ -109,4 +110,3 @@ if not df.empty:
     st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
 else:
     st.error("Aucune donnée disponible.")
-
