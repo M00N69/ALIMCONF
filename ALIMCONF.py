@@ -4,43 +4,69 @@ import requests
 import folium
 from streamlit_folium import folium_static
 
-# Fonction pour récupérer les données complètes depuis l'API JSON
-def get_data_from_json():
-    url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/json?lang=fr&timezone=Europe%2FBerlin"
-    response = requests.get(url)
+# Fonction pour récupérer les données en segments en utilisant la date comme critère
+def get_data_segmented(year, month=None):
+    base_url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?timezone=Europe%2FBerlin&lang=fr&refine=date_inspection%3A%22{year}"
+    if month is not None:
+        base_url += f"-{month:02}"
+    base_url += "%22"
     
-    if response.status_code == 200:
+    records = []
+    start_index = 0
+    rows_fetched = 100  # L'API retourne par défaut 100 lignes
+
+    while rows_fetched == 100:
+        url = f"{base_url}&start={start_index}&rows=100"
+        response = requests.get(url)
         data = response.json()
-        df = pd.DataFrame(data)
         
+        if 'results' in data:
+            records.extend(data['results'])
+            rows_fetched = len(data['results'])
+            start_index += rows_fetched
+        else:
+            st.error("Erreur : format de réponse JSON incorrect.")
+            break
+    
+    if records:
+        df = pd.DataFrame(records)
         if 'date_inspection' in df.columns:
             df['date_inspection'] = pd.to_datetime(df['date_inspection'])
         else:
             st.error("Erreur : la colonne 'date_inspection' est manquante.")
             return None
-
         return df
     else:
-        st.error("Erreur : Impossible de récupérer les données JSON.")
         return None
 
 # Interface utilisateur Streamlit
 st.title('Données AlimConfiance')
 
-# Récupérer toutes les données depuis l'API JSON
-df = get_data_from_json()
+# Slider pour sélectionner la plage de dates
+start_date, end_date = st.sidebar.date_input(
+    "Sélectionnez la période d'inspection",
+    value=[pd.to_datetime("2023-01-01"), pd.to_datetime("2024-12-31")],
+    min_value=pd.to_datetime("2015-01-01"),
+    max_value=pd.to_datetime("2024-12-31")
+)
+
+# Récupérer les données segmentées par mois ou trimestre
+dfs = []
+for single_date in pd.date_range(start=start_date, end=end_date, freq='M'):
+    year = single_date.year
+    month = single_date.month
+    df = get_data_segmented(year, month)
+    if df is not None:
+        dfs.append(df)
+
+# Concaténation des données pour tous les segments sélectionnés
+if dfs:
+    df = pd.concat(dfs, ignore_index=True)
+else:
+    st.error("Aucune donnée disponible pour la période sélectionnée.")
+    df = None
 
 if df is not None:
-    # Filtrage par plage de dates
-    start_date, end_date = st.sidebar.date_input(
-        "Sélectionnez la période d'inspection",
-        value=[pd.to_datetime("2023-01-01"), pd.to_datetime("2024-12-31")],
-        min_value=pd.to_datetime("2015-01-01"),
-        max_value=pd.to_datetime("2024-12-31")
-    )
-    
-    df = df[(df['date_inspection'] >= pd.to_datetime(start_date)) & (df['date_inspection'] <= pd.to_datetime(end_date))]
-
     # Filtrage supplémentaire
     st.sidebar.title('Filtrage')
 
