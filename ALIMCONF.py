@@ -11,28 +11,30 @@ CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/expor
 def load_data():
     df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
 
-    # Afficher un aperçu des données avant toute manipulation
+    # Afficher un aperçu des données brutes
     st.write("Aperçu des données avant manipulation:", df.head())
 
-    # Afficher les types de colonnes avant conversion
+    # Vérifier les types de colonnes avant conversion
     st.write("Types de données avant conversion:", df.dtypes)
 
-    # Convertir la colonne 'Date_inspection' en datetime
+    # Forcer la conversion en datetime avec une gestion stricte des erreurs
     try:
         df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce')
     except Exception as e:
         st.error(f"Erreur lors de la conversion de 'Date_inspection': {e}")
 
-    # Vérifier les types de données après conversion
+    # Vérifier les types après conversion
     st.write("Types de données après conversion:", df.dtypes)
 
-    # Afficher les dates non converties correctement
-    st.write("Dates non converties (NaT):", df[df['Date_inspection'].isnull()])
+    # Vérifier s'il y a des valeurs non converties
+    if df['Date_inspection'].isnull().any():
+        st.warning("Certaines dates n'ont pas pu être converties en datetime. Les lignes correspondantes seront supprimées.")
+        st.write(df[df['Date_inspection'].isnull()])
 
-    # Supprimer les lignes avec des dates non converties
+    # Supprimer les lignes où la conversion a échoué
     df = df.dropna(subset=['Date_inspection'])
 
-    # Extraire uniquement la date (sans l'heure)
+    # Extraire la partie date seulement (sans l'heure)
     df['Date_inspection'] = df['Date_inspection'].dt.date
 
     return df
@@ -42,7 +44,7 @@ st.title('Données AlimConfiance')
 df = load_data()
 
 # Vérification des données chargées
-st.write("Aperçu des données après manipulation:", df.head())
+st.write("Aperçu des données après conversion:", df.head())
 
 if not df.empty:
     # Filtrer sur le dernier mois et "A améliorer"
