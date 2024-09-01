@@ -71,11 +71,18 @@ df_filtered = df[(df['Date_inspection'] >= selected_start) & (df['Date_inspectio
 synthese_options = ['A corriger de manière urgente', 'Tous'] + list(df_filtered['Synthese_eval_sanit'].unique())
 selected_synthese = st.selectbox("Filtrer par Synthèse d'évaluation sanitaire", synthese_options, index=0)
 
+# Filtre pour la colonne 'filtre'
+filtre_options = ['Tous'] + sorted(df_filtered['filtre'].unique().tolist())
+selected_filtre = st.selectbox("Filtrer par type de contrôle", filtre_options)
+
 activite_options = ['Tous'] + list(df_filtered['APP_Libelle_activite_etablissement'].unique())
 selected_activite = st.selectbox("Filtrer par Activité de l'établissement", activite_options)
 
 if selected_synthese != 'Tous':
     df_filtered = df_filtered[df_filtered['Synthese_eval_sanit'] == selected_synthese]
+
+if selected_filtre != 'Tous':
+    df_filtered = df_filtered[df_filtered['filtre'] == selected_filtre]
 
 if selected_activite != 'Tous':
     df_filtered = df_filtered[df_filtered['APP_Libelle_activite_etablissement'] == selected_activite]
