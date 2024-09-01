@@ -29,14 +29,11 @@ def load_data():
         'ods_type_activite': 'ods_type_activite'
     }, inplace=True)
 
-    # Convertir la colonne 'date_inspection' en datetime
-    df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce')
+    # Convertir la colonne 'date_inspection' en datetime et extraire uniquement la date
+    df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce').dt.date
 
     # Supprimer les lignes où la conversion en datetime a échoué
     df = df.dropna(subset=['date_inspection'])
-
-    # Extraire la date uniquement (sans heure)
-    df['date_inspection'] = df['date_inspection'].dt.date
 
     return df
 
@@ -111,3 +108,4 @@ if not df.empty:
         st.warning("Aucun établissement trouvé avec les critères spécifiés.")
 else:
     st.error("Aucune donnée disponible.")
+
