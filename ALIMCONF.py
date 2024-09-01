@@ -10,7 +10,7 @@ def get_data(start_date, end_date, use_csv=False):
         url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
         df = pd.read_csv(url, sep=";")
     else:
-        url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=100&refine=date_inspection%3A%22{start_date}%22%3A%22{end_date}%22&refine=synthese_eval_sanit%3A%22A%20am%C3%A9liorer%22"
+        url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=100&refine=Date_inspection%3A%22{start_date}%22%3A%22{end_date}%22&refine=synthese_eval_sanit%3A%22A%20am%C3%A9liorer%22"
 
         all_data = []
         offset = 0
@@ -31,7 +31,7 @@ def get_data(start_date, end_date, use_csv=False):
 
         df = pd.DataFrame(all_data)
 
-    df['date_inspection'] = pd.to_datetime(df['date_inspection'])
+    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'])
     return df
 
 # Fonction pour créer la carte interactive
@@ -41,14 +41,13 @@ def create_map(df):
 
     for _, row in df.iterrows():
         if row['geores'] is not None:
-            latitude = row['geores']['lat']
-            longitude = row['geores']['lon']
-            tooltip = row['app_libelle_etablissement']
+            latitude, longitude = map(float, row['geores'].split(','))
+            tooltip = row['APP_Libelle_etablissement']
             folium.Marker(
                 location=[latitude, longitude],
-                popup=row['app_libelle_etablissement'],
+                popup=row['APP_Libelle_etablissement'],
                 tooltip=tooltip,
-                icon=folium.Icon(color='green' if row['synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
+                icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
             ).add_to(map)
 
     return map
@@ -74,7 +73,7 @@ if df is not None:
     niveau_resultat = st.sidebar.selectbox("Niveau de résultat", all_levels)
 
     activite_etablissement_unique = set()
-    for activites in df['app_libelle_activite_etablissement']:
+    for activites in df['APP_Libelle_activite_etablissement']:
         activite_etablissement_unique.update(activites)
 
     activite_etablissement = st.sidebar.multiselect(
@@ -99,10 +98,10 @@ if df is not None:
 
     # Appliquer les filtres
     if niveau_resultat != 'Tous':
-        df = df[df['synthese_eval_sanit'] == niveau_resultat]
+        df = df[df['Synthese_eval_sanit'] == niveau_resultat]
 
     if activite_etablissement:
-        df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
+        df = df[df['APP_Libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
 
     if filtre_categorie:
         df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if isinstance(x, list) else False)]
@@ -111,10 +110,10 @@ if df is not None:
         df = df[df['ods_type_activite'].isin(ods_type_activite)]
 
     if nom_etablissement:
-        df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement, case=False)]
+        df = df[df['APP_Libelle_etablissement'].str.contains(nom_etablissement, case=False)]
 
     if adresse:
-        df = df[df['adresse_2_ua'].str.contains(adresse, case=False)]
+        df = df[df['Adresse_2_UA'].str.contains(adresse, case=False)]
 
     # Afficher la carte interactive
     st.subheader('Carte des établissements')
@@ -130,8 +129,8 @@ if df is not None:
     st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
 
     # Afficher la fiche complète d'un site sélectionné
-    selected_site = st.selectbox("Sélectionner un site", df['app_libelle_etablissement'])
-    selected_site_data = df[df['app_libelle_etablissement'] == selected_site].iloc[0]
+    selected_site = st.selectbox("Sélectionner un site", df['APP_Libelle_etablissement'])
+    selected_site_data = df[df['APP_Libelle_etablissement'] == selected_site].iloc[0]
     st.subheader('Fiche complète du site sélectionné')
     st.write(selected_site_data)
 else:
