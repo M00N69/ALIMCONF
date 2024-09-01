@@ -28,15 +28,6 @@ def load_data():
         'ods_type_activite': 'ods_type_activite'
     }, inplace=True)
 
-    # Conversion des dates avec gestion des erreurs
-    df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce')
-
-    # Filtrer les lignes avec des dates valides uniquement
-    df = df[df['date_inspection'].notna()]
-
-    # Extraire l'année et le mois pour faciliter le filtrage
-    df['year_month'] = df['date_inspection'].dt.to_period('M')
-
     # Conversion des coordonnées géographiques en dictionnaires
     df['geores'] = df['geores'].apply(lambda x: {'lat': float(x.split(',')[0]), 'lon': float(x.split(',')[1])} if pd.notnull(x) else None)
 
@@ -46,39 +37,25 @@ def load_data():
 st.title('Données AlimConfiance')
 df = load_data()
 
-# Créer une liste des mois disponibles pour le filtrage
-available_months = df['year_month'].dropna().unique()
-available_months = sorted(available_months)
-
-# Sélection de la plage de mois pour filtrer les données
-start_month, end_month = st.sidebar.select_slider(
-    "Sélectionnez la période d'inspection (mois)",
-    options=available_months,
-    value=(available_months[0], available_months[-1])
-)
-
-# Filtrer les données en fonction de la plage de mois sélectionnée
-df_filtered = df[(df['year_month'] >= start_month) & (df['year_month'] <= end_month)]
-
-if not df_filtered.empty:
+if not df.empty:
     # Filtrage supplémentaire
     st.sidebar.title('Filtrage')
 
     all_levels = ['Tous', 'Très satisfaisant', 'Satisfaisant', 'A améliorer', 'A corriger de manière urgente']
     niveau_resultat = st.sidebar.selectbox("Niveau de résultat", all_levels)
 
-    activite_etablissement_unique = df_filtered['app_libelle_activite_etablissement'].dropna().unique()
+    activite_etablissement_unique = df['app_libelle_activite_etablissement'].dropna().unique()
     activite_etablissement = st.sidebar.multiselect(
         "Activité de l'établissement", sorted(activite_etablissement_unique)
     )
 
-    filtre_categorie_unique = df_filtered['filtre'].dropna().unique()
+    filtre_categorie_unique = df['filtre'].dropna().unique()
     filtre_categorie = st.sidebar.multiselect(
         "Catégorie de filtre", sorted(filtre_categorie_unique)
     )
 
     ods_type_activite = st.sidebar.multiselect(
-        "Type d'activité", sorted(df_filtered['ods_type_activite'].unique())
+        "Type d'activité", sorted(df['ods_type_activite'].unique())
     )
 
     nom_etablissement = st.sidebar.text_input("Nom de l'établissement")
@@ -86,27 +63,27 @@ if not df_filtered.empty:
 
     # Appliquer les filtres
     if niveau_resultat != 'Tous':
-        df_filtered = df_filtered[df_filtered['synthese_eval_sanit'] == niveau_resultat]
+        df = df[df['synthese_eval_sanit'] == niveau_resultat]
 
     if activite_etablissement:
-        df_filtered = df_filtered[df_filtered['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
+        df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
 
     if filtre_categorie:
-        df_filtered = df_filtered[df_filtered['filtre'].apply(lambda x: any(item in x for item in filtre_categorie))]
+        df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie))]
 
     if ods_type_activite:
-        df_filtered = df_filtered[df_filtered['ods_type_activite'].isin(ods_type_activite)]
+        df = df[df['ods_type_activite'].isin(ods_type_activite)]
 
     if nom_etablissement:
-        df_filtered = df_filtered[df_filtered['app_libelle_etablissement'].str.contains(nom_etablissement, case=False)]
+        df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement, case=False)]
 
     if adresse:
-        df_filtered = df_filtered[df_filtered['adresse_2_ua'].str.contains(adresse, case=False)]
+        df = df[df['adresse_2_ua'].str.contains(adresse, case=False)]
 
     # Afficher la carte interactive
     st.subheader('Carte des établissements')
     map = folium.Map(location=[46.2276, 2.2137], zoom_start=6)
-    for _, row in df_filtered.iterrows():
+    for _, row in df.iterrows():
         if row['geores'] is not None:
             folium.Marker(
                 location=[row['geores']['lat'], row['geores']['lon']],
@@ -125,11 +102,11 @@ if not df_filtered.empty:
 
     # Afficher les informations détaillées
     st.subheader('Données détaillées')
-    st.write(df_filtered)
+    st.write(df)
 
     # Permettre de télécharger les données filtrées
-    csv = df_filtered.to_csv(index=False)
+    csv = df.to_csv(index=False)
     st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
 else:
-    st.error("Aucune donnée disponible pour la période sélectionnée.")
+    st.error("Aucune donnée disponible.")
 
