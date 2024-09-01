@@ -111,4 +111,3 @@ if not df.empty:
         st.warning("Aucun établissement trouvé avec les critères spécifiés.")
 else:
     st.error("Aucune donnée disponible.")
-
