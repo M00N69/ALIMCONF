@@ -2,16 +2,15 @@ import streamlit as st
 import pandas as pd
 import requests
 import folium
+from datetime import datetime, timedelta
 
 # Fonction pour récupérer les données de l'API ou du fichier CSV
-def get_data(year, month=None, use_csv=False):
+def get_data(start_date, end_date, use_csv=False):
     if use_csv:
         url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
         df = pd.read_csv(url, sep=";")
     else:
-        url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=100&refine=date_inspection%3A%22{year}%22&refine=synthese_eval_sanit%3A%22A%20am%C3%A9liorer%22"
-        if month is not None:
-            url += f"&refine=date_inspection%3A%22{year}-{month:02}%22"
+        url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=100&refine=date_inspection%3A%22{start_date}%22%3A%22{end_date}%22&refine=synthese_eval_sanit%3A%22A%20am%C3%A9liorer%22"
 
         all_data = []
         offset = 0
@@ -55,13 +54,15 @@ def create_map(df):
     return map
 
 # Interface utilisateur Streamlit
+st.set_page_config(layout="wide")  # Set page layout to wide
+
 st.title('Données AlimConfiance')
 
 # Récupérer les données de l'API ou du fichier CSV
 use_csv = st.sidebar.checkbox("Utiliser le fichier CSV")
-year = st.sidebar.selectbox("Année d'inspection", [2024, 2023])
-month = st.sidebar.selectbox("Mois d'inspection", range(1, 13), format_func=lambda x: f"{x:02}")
-df = get_data(year, month, use_csv)
+start_date = st.sidebar.date_input("Date de début", datetime(2023, 9, 1))
+end_date = st.sidebar.date_input("Date de fin", datetime.now())
+df = get_data(start_date, end_date, use_csv)
 
 if df is not None:
     # Filtrage
@@ -118,15 +119,21 @@ if df is not None:
     # Afficher la carte interactive
     st.subheader('Carte des établissements')
     map = create_map(df)
-    st.components.v1.html(map._repr_html_(), width=700, height=500)
+    st.components.v1.html(map._repr_html_(), width=1200, height=600)
 
     # Afficher les informations détaillées
     st.subheader('Données détaillées')
-    st.write(df)
+    st.markdown(df.style.set_properties(**{'text-align': 'center'}).to_html(), unsafe_allow_html=True)
 
     # Permettre de télécharger les données filtrées
     csv = df.to_csv(index=False)
     st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
+
+    # Afficher la fiche complète d'un site sélectionné
+    selected_site = st.selectbox("Sélectionner un site", df['app_libelle_etablissement'])
+    selected_site_data = df[df['app_libelle_etablissement'] == selected_site].iloc[0]
+    st.subheader('Fiche complète du site sélectionné')
+    st.write(selected_site_data)
 else:
     st.error("Impossible de récupérer les données. Veuillez réessayer plus tard.")
 
