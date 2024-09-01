@@ -9,10 +9,17 @@ CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/expor
 # Fonction pour charger les données depuis le CSV
 @st.cache_data
 def load_data():
+    # Charger les données
     df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
 
-    # Convertir la colonne 'Date_inspection' en datetime et extraire uniquement la date
+    # Vérifier le type de données avant conversion
+    st.write("Types de données avant conversion:", df.dtypes)
+
+    # Tenter la conversion en datetime
     df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce')
+
+    # Vérifier les types après conversion
+    st.write("Types de données après conversion:", df.dtypes)
 
     # Vérifier s'il y a des valeurs non converties
     if df['Date_inspection'].isnull().any():
@@ -22,7 +29,7 @@ def load_data():
     # Supprimer les lignes où la conversion en datetime a échoué
     df = df.dropna(subset=['Date_inspection'])
 
-    # Extraire uniquement la date (sans l'heure)
+    # Extraire la partie date seulement (sans l'heure)
     df['Date_inspection'] = df['Date_inspection'].dt.date
 
     return df
@@ -30,6 +37,9 @@ def load_data():
 # Charger les données
 st.title('Données AlimConfiance')
 df = load_data()
+
+# Vérification des données chargées
+st.write("Aperçu des données:", df.head())
 
 if not df.empty:
     # Filtrer sur le dernier mois et "A améliorer"
@@ -99,3 +109,4 @@ if not df.empty:
         st.warning("Aucun établissement trouvé avec les critères spécifiés.")
 else:
     st.error("Aucune donnée disponible.")
+
