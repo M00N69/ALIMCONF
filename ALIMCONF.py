@@ -4,7 +4,8 @@ import folium
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
-# Fonction pour récupérer les données du CSV
+# Fonction pour récupérer les données du CSV avec mise en cache
+@st.cache_data(ttl=3600)
 def get_data():
     url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
     df = pd.read_csv(url, sep=";")
@@ -35,7 +36,7 @@ def create_map(df):
                         location=[latitude, longitude],
                         popup=row['APP_Libelle_etablissement'],
                         tooltip=tooltip,
-                        icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
+                        icon=folium.Icon(color='red', icon='exclamation-sign', prefix='fa')
                     ).add_to(map)
 
     return map
@@ -67,8 +68,8 @@ selected_end = pd.to_datetime(selected_end).tz_localize('UTC') + relativedelta(m
 df_filtered = df[(df['Date_inspection'] >= selected_start) & (df['Date_inspection'] <= selected_end)]
 
 # Filtres pour Synthese_eval_sanit et APP_Libelle_activite_etablissement
-synthese_options = ['Tous'] + list(df_filtered['Synthese_eval_sanit'].unique())
-selected_synthese = st.selectbox("Filtrer par Synthèse d'évaluation sanitaire", synthese_options)
+synthese_options = ['A corriger de manière urgente', 'Tous'] + list(df_filtered['Synthese_eval_sanit'].unique())
+selected_synthese = st.selectbox("Filtrer par Synthèse d'évaluation sanitaire", synthese_options, index=0)
 
 activite_options = ['Tous'] + list(df_filtered['APP_Libelle_activite_etablissement'].unique())
 selected_activite = st.selectbox("Filtrer par Activité de l'établissement", activite_options)
