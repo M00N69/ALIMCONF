@@ -39,74 +39,33 @@ st.title('Données AlimConfiance')
 df = load_data()
 
 if not df.empty:
-    # Filtrage supplémentaire
-    st.sidebar.title('Filtrage')
+    # Filtrer pour ne garder que les établissements avec une synthèse "A améliorer"
+    df_filtered = df[df['synthese_eval_sanit'] == 'A améliorer']
 
-    all_levels = ['Tous', 'Très satisfaisant', 'Satisfaisant', 'A améliorer', 'A corriger de manière urgente']
-    niveau_resultat = st.sidebar.selectbox("Niveau de résultat", all_levels)
+    if not df_filtered.empty:
+        # Afficher la carte interactive
+        st.subheader('Carte des établissements "A améliorer"')
+        map = folium.Map(location=[46.2276, 2.2137], zoom_start=6)
+        for _, row in df_filtered.iterrows():
+            if row['geores'] is not None:
+                folium.Marker(
+                    location=[row['geores']['lat'], row['geores']['lon']],
+                    popup=row['app_libelle_etablissement'],
+                    tooltip=row['app_libelle_etablissement'],
+                    icon=folium.Icon(color='red', icon='star', prefix='fa')
+                ).add_to(map)
 
-    activite_etablissement_unique = df['app_libelle_activite_etablissement'].dropna().unique()
-    activite_etablissement = st.sidebar.multiselect(
-        "Activité de l'établissement", sorted(activite_etablissement_unique)
-    )
+        folium_static(map, width=700, height=500)
 
-    filtre_categorie_unique = df['filtre'].dropna().unique()
-    filtre_categorie = st.sidebar.multiselect(
-        "Catégorie de filtre", sorted(filtre_categorie_unique)
-    )
+        # Afficher les informations détaillées
+        st.subheader('Données détaillées des établissements "A améliorer"')
+        st.write(df_filtered)
 
-    ods_type_activite = st.sidebar.multiselect(
-        "Type d'activité", sorted(df['ods_type_activite'].unique())
-    )
-
-    nom_etablissement = st.sidebar.text_input("Nom de l'établissement")
-    adresse = st.sidebar.text_input("Adresse")
-
-    # Appliquer les filtres
-    if niveau_resultat != 'Tous':
-        df = df[df['synthese_eval_sanit'] == niveau_resultat]
-
-    if activite_etablissement:
-        df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
-
-    if filtre_categorie:
-        df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie))]
-
-    if ods_type_activite:
-        df = df[df['ods_type_activite'].isin(ods_type_activite)]
-
-    if nom_etablissement:
-        df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement, case=False)]
-
-    if adresse:
-        df = df[df['adresse_2_ua'].str.contains(adresse, case=False)]
-
-    # Afficher la carte interactive
-    st.subheader('Carte des établissements')
-    map = folium.Map(location=[46.2276, 2.2137], zoom_start=6)
-    for _, row in df.iterrows():
-        if row['geores'] is not None:
-            folium.Marker(
-                location=[row['geores']['lat'], row['geores']['lon']],
-                popup=row['app_libelle_etablissement'],  # Assurez-vous que cette colonne existe
-                tooltip=row['app_libelle_etablissement'],
-                icon=folium.Icon(
-                    color='green' if row['synthese_eval_sanit'] == 'Très satisfaisant' else 
-                          'orange' if row['synthese_eval_sanit'] == 'Satisfaisant' else 
-                          'red' if row['synthese_eval_sanit'] == 'A améliorer' else 'black',
-                    icon='star',
-                    prefix='fa'
-                )
-            ).add_to(map)
-
-    folium_static(map, width=700, height=500)
-
-    # Afficher les informations détaillées
-    st.subheader('Données détaillées')
-    st.write(df)
-
-    # Permettre de télécharger les données filtrées
-    csv = df.to_csv(index=False)
-    st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
+        # Permettre de télécharger les données filtrées
+        csv = df_filtered.to_csv(index=False)
+        st.download_button("Télécharger les données", csv, file_name="data_a_ameliorer.csv", mime="text/csv")
+    else:
+        st.warning("Aucun établissement trouvé avec une évaluation 'A améliorer'.")
 else:
     st.error("Aucune donnée disponible.")
+
