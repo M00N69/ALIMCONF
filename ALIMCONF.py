@@ -1,117 +1,132 @@
 import streamlit as st
 import pandas as pd
+import requests
 import folium
-from streamlit_folium import folium_static
 
-# URL du fichier CSV complet
-CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
+# Fonction pour récupérer les données de l'API ou du fichier CSV
+def get_data(year, month=None, use_csv=False):
+    if use_csv:
+        url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
+        df = pd.read_csv(url, sep=";")
+    else:
+        url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=100&refine=date_inspection%3A%22{year}%22&refine=synthese_eval_sanit%3A%22A%20am%C3%A9liorer%22"
+        if month is not None:
+            url += f"&refine=date_inspection%3A%22{year}-{month:02}%22"
 
-# Fonction pour charger les données depuis le CSV
-@st.cache_data
-def load_data():
-    df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
+        all_data = []
+        offset = 0
 
-    # Afficher un aperçu des données brutes
-    st.write("Aperçu des données avant manipulation:", df.head())
+        while True:
+            response = requests.get(url + f"&offset={offset}")
+            data = response.json()
 
-    # Vérifier les types de colonnes avant conversion
-    st.write("Types de données avant conversion:", df.dtypes)
+            if 'results' in data:
+                all_data.extend(data['results'])
+                offset += 100
+            else:
+                st.error("Erreur : format de réponse JSON incorrect.")
+                return None
 
-    # Forcer la conversion en datetime avec une gestion stricte des erreurs
-    try:
-        df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce')
-    except Exception as e:
-        st.error(f"Erreur lors de la conversion de 'Date_inspection': {e}")
+            if len(data['results']) < 100:
+                break
 
-    # Vérifier les types après conversion
-    st.write("Types de données après conversion:", df.dtypes)
+        df = pd.DataFrame(all_data)
 
-    # Vérifier s'il y a des valeurs non converties
-    if df['Date_inspection'].isnull().any():
-        st.warning("Certaines dates n'ont pas pu être converties en datetime. Les lignes correspondantes seront supprimées.")
-        st.write(df[df['Date_inspection'].isnull()])
-
-    # Supprimer les lignes où la conversion a échoué
-    df = df.dropna(subset=['Date_inspection'])
-
-    # Extraire la partie date seulement (sans l'heure)
-    df['Date_inspection'] = df['Date_inspection'].dt.date
-
+    df['date_inspection'] = pd.to_datetime(df['date_inspection'])
     return df
 
-# Charger les données
+# Fonction pour créer la carte interactive
+def create_map(df):
+    map_center = [46.2276, 2.2137]
+    map = folium.Map(location=map_center, zoom_start=6)
+
+    for _, row in df.iterrows():
+        if row['geores'] is not None:
+            latitude = row['geores']['lat']
+            longitude = row['geores']['lon']
+            tooltip = row['app_libelle_etablissement']
+            folium.Marker(
+                location=[latitude, longitude],
+                popup=row['app_libelle_etablissement'],
+                tooltip=tooltip,
+                icon=folium.Icon(color='green' if row['synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
+            ).add_to(map)
+
+    return map
+
+# Interface utilisateur Streamlit
 st.title('Données AlimConfiance')
-df = load_data()
 
-# Vérification des données chargées
-st.write("Aperçu des données après conversion:", df.head())
+# Récupérer les données de l'API ou du fichier CSV
+use_csv = st.sidebar.checkbox("Utiliser le fichier CSV")
+year = st.sidebar.selectbox("Année d'inspection", [2024, 2023])
+month = st.sidebar.selectbox("Mois d'inspection", range(1, 13), format_func=lambda x: f"{x:02}")
+df = get_data(year, month, use_csv)
 
-if not df.empty:
-    # Filtrer sur le dernier mois et "A améliorer"
-    last_month = pd.to_datetime(df['Date_inspection'].max()).to_period('M').to_timestamp()
-    df_filtered = df[(pd.to_datetime(df['Date_inspection']) >= last_month) & (df['Synthese_eval_sanit'] == 'A améliorer')]
+if df is not None:
+    # Filtrage
+    st.sidebar.title('Filtrage')
 
-    # Ajout des filtres dans la barre latérale
-    st.sidebar.title('Filtres supplémentaires')
+    # Liste complète des niveaux de résultat possibles
+    all_levels = ['Tous', 'Très satisfaisant', 'Satisfaisant', 'A améliorer', 'A corriger de manière urgente']
 
-    activite_etablissement_unique = df_filtered['APP_Libelle_activite_etablissement'].dropna().unique()
+    niveau_resultat = st.sidebar.selectbox("Niveau de résultat", all_levels)
+
+    activite_etablissement_unique = set()
+    for activites in df['app_libelle_activite_etablissement']:
+        activite_etablissement_unique.update(activites)
+
     activite_etablissement = st.sidebar.multiselect(
-        "Activité de l'établissement", sorted(activite_etablissement_unique)
+        "Activité de l'établissement", list(activite_etablissement_unique)
     )
 
-    filtre_categorie_unique = df_filtered['filtre'].dropna().unique()
+    filtre_categorie_unique = set()
+    for filtres in df['filtre']:
+        if isinstance(filtres, list):
+            filtre_categorie_unique.update(filtres)
+
     filtre_categorie = st.sidebar.multiselect(
-        "Catégorie de filtre", sorted(filtre_categorie_unique)
+        "Catégorie de filtre", list(filtre_categorie_unique)
     )
 
     ods_type_activite = st.sidebar.multiselect(
-        "Type d'activité", sorted(df_filtered['ods_type_activite'].unique())
+        "Type d'activité", df['ods_type_activite'].unique()
     )
 
     nom_etablissement = st.sidebar.text_input("Nom de l'établissement")
     adresse = st.sidebar.text_input("Adresse")
 
-    # Appliquer les filtres supplémentaires
+    # Appliquer les filtres
+    if niveau_resultat != 'Tous':
+        df = df[df['synthese_eval_sanit'] == niveau_resultat]
+
     if activite_etablissement:
-        df_filtered = df_filtered[df_filtered['APP_Libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
+        df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
 
     if filtre_categorie:
-        df_filtered = df_filtered[df_filtered['filtre'].apply(lambda x: any(item in x for item in filtre_categorie))]
+        df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if isinstance(x, list) else False)]
 
     if ods_type_activite:
-        df_filtered = df_filtered[df_filtered['ods_type_activite'].isin(ods_type_activite)]
+        df = df[df['ods_type_activite'].isin(ods_type_activite)]
 
     if nom_etablissement:
-        df_filtered = df_filtered[df_filtered['APP_Libelle_etablissement'].str.contains(nom_etablissement, case=False)]
+        df = df[df['app_libelle_etablissement'].str.contains(nom_etablissement, case=False)]
 
     if adresse:
-        df_filtered = df_filtered[df_filtered['Adresse_2_UA'].str.contains(adresse, case=False)]
+        df = df[df['adresse_2_ua'].str.contains(adresse, case=False)]
 
-    if not df_filtered.empty:
-        # Afficher la carte interactive
-        st.subheader('Carte des établissements "A améliorer" (Dernier Mois)')
-        map = folium.Map(location=[46.2276, 2.2137], zoom_start=6)
-        for _, row in df_filtered.iterrows():
-            if pd.notnull(row['geores']):
-                latitude, longitude = map(float, row['geores'].split(','))
-                folium.Marker(
-                    location=[latitude, longitude],
-                    popup=row['APP_Libelle_etablissement'],
-                    tooltip=row['APP_Libelle_etablissement'],
-                    icon=folium.Icon(color='red', icon='star', prefix='fa')
-                ).add_to(map)
+    # Afficher la carte interactive
+    st.subheader('Carte des établissements')
+    map = create_map(df)
+    st.components.v1.html(map._repr_html_(), width=700, height=500)
 
-        folium_static(map, width=700, height=500)
+    # Afficher les informations détaillées
+    st.subheader('Données détaillées')
+    st.write(df)
 
-        # Afficher les informations détaillées
-        st.subheader('Données détaillées des établissements "A améliorer" (Dernier Mois)')
-        st.write(df_filtered)
-
-        # Permettre de télécharger les données filtrées
-        csv = df_filtered.to_csv(index=False)
-        st.download_button("Télécharger les données", csv, file_name="data_a_ameliorer.csv", mime="text/csv")
-    else:
-        st.warning("Aucun établissement trouvé avec les critères spécifiés.")
+    # Permettre de télécharger les données filtrées
+    csv = df.to_csv(index=False)
+    st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
 else:
-    st.error("Aucune donnée disponible.")
+    st.error("Impossible de récupérer les données. Veuillez réessayer plus tard.")
 
