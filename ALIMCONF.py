@@ -5,12 +5,51 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
+# Configurer le mode wide
+st.set_page_config(layout="wide")
+
+# Custom CSS for changing sidebar background color and resizing the banner
+st.markdown(
+    """
+    <style>
+    /* Sidebar background color */
+    [data-testid="stSidebar"] {
+        background-color: #2398B2; /* Light blue color */
+    }
+
+    /* Sidebar header text color (optional) */
+    [data-testid="stSidebar"] .css-1lcbmhc {
+        color: black;
+    }
+    
+    /* Sidebar widget text color (optional) */
+    [data-testid="stSidebar"] .css-17eq0hr {
+        color: black;
+    }
+
+    /* Banner styling */
+    .banner {
+        background-image: url('https://github.com/M00N69/BUSCAR/blob/main/logo%2002%20copie.jpg?raw=true');
+        background-size: cover;
+        padding: 75px;
+        text-align: center;
+    }
+    .dataframe td {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+    </style>
+    <div class="banner"></div>
+    """,
+    unsafe_allow_html=True
+)
+
 # Fonction pour récupérer les données du CSV avec mise en cache
 @st.cache_data(ttl=3600)
 def get_data():
     url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
     df = pd.read_csv(url, sep=";")
-    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], format='%Y-%m-%dT%H:%M:%S%z')
+    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], format='%Y-%m-%dT%H:%M:%S%z', errors='coerce')
     return df
 
 # Fonction pour convertir les coordonnées en float de manière sûre
@@ -59,7 +98,6 @@ def create_bar_chart(data, title, x_label, y_label):
     return fig
 
 # Interface utilisateur Streamlit
-st.set_page_config(layout="wide")
 st.title('Données AlimConfiance')
 
 # Navigation avec la sidebar
@@ -205,6 +243,7 @@ elif page == "Statistiques":
 
     st.subheader('Évaluations mensuelles')
     st.pyplot(fig3)
+
     
 # --- Logo and Link in Sidebar ---
     st.sidebar.markdown(
