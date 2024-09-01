@@ -132,15 +132,6 @@ def create_bar_chart(data, title, x_label, y_label):
 # Interface utilisateur Streamlit
 st.title('Données AlimConfiance')
 
-# Create a button with a link and text input for copying the URL
-url_to_copy = "https://dgal.opendatasoft.com/explore/dataset/export_alimconfiance/table/?disjunctive.app_libelle_activite_etablissement&disjunctive.filtre&disjunctive.ods_type_activite&refine.synthese_eval_sanit=A+corriger+de+mani%C3%A8re+urgente&dataChart=eyJxdWVyaWVzIjpbeyJjb25maWciOnsiZGF0YXNldCI6ImV4cG9ydF9hbGltY29uZmlhbmNlIiwib3B0aW9ucyI6eyJkaXNqdW5jdGl2ZS5hcHBfbGliZWxsZV9hY3Rpdml0ZV9ldGFibGlzc2VtZW50Ijp0cnVlLCJkaXNqdW5jdGl2ZS5maWx0cmUiOnRydWUsImRpc2p1bmN0aXZlLm9kc190eXBlX2FjdGl2aXRlIjp0cnVlLCJsb2NhdGlvbiI6IjUsNDEuNjg5MzIsNS45NzY1NiJ9fSwiY2hhcnRzIjpbeyJhbGlnbk1vbnRoIjp0cnVlLCJ0eXBlIjoiYmFyIiwiZnVuYyI6IkNPVU5UIiwieUF4aXMiOiJhcHBfY29kZV9zeW50aGVzZV9ldmFsX3Nhbml0Iiwic2NpZW50aWZpY0Rpc3BsYXkiOnRydWUsImNvbG9yIjoicmFuZ2UtQWNjZW50IiwicG9zaXRpb24iOiJjZW50ZXIifSx7ImFsaWduTW9udGgiOnRydWUsInR5cGUiOiJsaW5lIiwiZnVuYyI6IkFWRyIsInlBeGlzIjoiYXBwX2NvZGVfc3ludGhlc2VfZXZhbF9zYW5pdCIsInNjaWVudGlmaWNEaXNwbGF5Ijp0cnVlLCJjb2xvciI6InJhbmdlLUFjY2VudCJ9XSwieEF4aXMiOiJkYXRlX2luc3BlY3Rpb24iLCJtYXhwb2ludHMiOm51bGwsInRpbWVzY2FsZSI6Im1vbnRoIiwic29ydCI6IiIsInNlcmllc0JyZWFrZG93biI6Im9kc190eXBlX2FjdGl2aXRlIiwic2VyaWVzQnJlYWtkb3duVGltZXNjYWxlIjoiIn1dLCJkaXNwbGF5TGVnZW5kIjp0cnVlLCJhbGlnbk1vbnRoIjp0cnVlfQ%3D%3D&location=5,41.68932,5.97656"  # The URL you want to link to and copy
-
-if st.sidebar.button("Lien vers source"):
-    st.sidebar.markdown(f"[Visiter la source]({url_to_copy})", unsafe_allow_html=True)
-
-# Provide a text input for copying
-st.sidebar.text_input("Copier l'URL:", value=url_to_copy, on_change=lambda: st.sidebar.write("Lien copié!"), key="url_copy")
-
 
 # Navigation avec la sidebar
 page = st.sidebar.selectbox("Choisissez une page", ["Carte des établissements", "Statistiques"])
@@ -192,6 +183,19 @@ if selected_ods_type != 'Tous':
 
 if selected_activite != 'Tous':
     df_filtered = df_filtered[df_filtered['APP_Libelle_activite_etablissement'] == selected_activite]
+
+# Add the clickable logo at the bottom of the sidebar
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-bottom-logo-container">
+        <a href="https://dgal.opendatasoft.com/explore/dataset/export_alimconfiance/table/?disjunctive.app_libelle_activite_etablissement&disjunctive.filtre&disjunctive.ods_type_activite&refine.synthese_eval_sanit=A+corriger+de+mani%C3%A8re+urgente&dataChart=eyJxdWVyaWVzIjpbeyJjb25maWciOnsiZGF0YXNldCI6ImV4cG9ydF9hbGltY29uZmlhbmNlIiwib3B0aW9ucyI6eyJkaXNqdW5jdGl2ZS5hcHBfbGliZWxsZV9hY3Rpdml0ZV9ldGFibGlzc2VtZW50Ijp0cnVlLCJkaXNqdW5jdGl2ZS5maWx0cmUiOnRydWUsImRpc2p1bmN0aXZlLm9kc190eXBlX2FjdGl2aXRlIjp0cnVlLCJsb2NhdGlvbiI6IjUsNDEuNjg5MzIsNS45NzY1NiJ9fSwiY2hhcnRzIjpbeyJhbGlnbk1vbnRoIjp0cnVlLCJ0eXBlIjoiYmFyIiwiZnVuYyI6IkNPVU5UIiwieUF4aXMiOiJhcHBfY29kZV9zeW50aGVzZV9ldmFsX3Nhbml0Iiwic2NpZW50aWZpY0Rpc3BsYXkiOnRydWUsImNvbG9yIjoicmFuZ2UtQWNjZW50IiwicG9zaXRpb24iOiJjZW50ZXIifSx7ImFsaWduTW9udGgiOnRydWUsInR5cGUiOiJsaW5lIiwiZnVuYyI6IkFWRyIsInlBeGlzIjoiYXBwX2NvZGVfc3ludGhlc2VfZXZhbF9zYW5pdCIsInNjaWVudGlmaWNEaXNwbGF5Ijp0cnVlLCJjb2xvciI6InJhbmdlLUFjY2VudCJ9XSwieEF4aXMiOiJkYXRlX2luc3BlY3Rpb24iLCJtYXhwb2ludHMiOm51bGwsInRpbWVzY2FsZSI6Im1vbnRoIiwic29ydCI6IiIsInNlcmllc0JyZWFrZG93biI6Im9kc190eXBlX2FjdGl2aXRlIiwic2VyaWVzQnJlYWtkb3duVGltZXNjYWxlIjoiIn1dLCJkaXNwbGF5TGVnZW5kIjp0cnVlLCJhbGlnbk1vbnRoIjp0cnVlfQ%3D%3D&location=5,41.68932,5.97656" target="_blank">
+            <img src="https://github.com/M00N69/ALIMCONF/blob/main/logo-alimconfiance.svg?raw=true" alt="Logo Alim Confiance" class="sidebar-bottom-logo">
+        </a>
+    </div>
+    """, unsafe_allow_html=True
+)
+
+
 
 # Logique pour afficher la page sélectionnée
 if page == "Carte des établissements":
