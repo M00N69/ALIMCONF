@@ -20,16 +20,22 @@ def create_map(df):
     for _, row in df.iterrows():
         if pd.notna(row['geores']) and isinstance(row['geores'], str):
             try:
-                latitude, longitude = map(float, row['geores'].split(','))
-                tooltip = row['APP_Libelle_etablissement']
-                folium.Marker(
-                    location=[latitude, longitude],
-                    popup=row['APP_Libelle_etablissement'],
-                    tooltip=tooltip,
-                    icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
-                ).add_to(map)
+                coords = row['geores'].split(',')
+                if len(coords) == 2:
+                    latitude, longitude = map(float, coords)
+                    tooltip = row['APP_Libelle_etablissement']
+                    folium.Marker(
+                        location=[latitude, longitude],
+                        popup=row['APP_Libelle_etablissement'],
+                        tooltip=tooltip,
+                        icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
+                    ).add_to(map)
+                else:
+                    st.warning(f"Format de coordonnées invalide pour l'établissement : {row['APP_Libelle_etablissement']}")
             except ValueError:
                 st.warning(f"Coordonnées invalides pour l'établissement : {row['APP_Libelle_etablissement']}")
+        else:
+            st.warning(f"Données de géolocalisation manquantes pour l'établissement : {row['APP_Libelle_etablissement']}")
 
     return map
 
