@@ -18,15 +18,18 @@ def create_map(df):
     map = folium.Map(location=map_center, zoom_start=6)
 
     for _, row in df.iterrows():
-        if pd.notna(row['geores']):
-            latitude, longitude = map(float, row['geores'].split(','))
-            tooltip = row['APP_Libelle_etablissement']
-            folium.Marker(
-                location=[latitude, longitude],
-                popup=row['APP_Libelle_etablissement'],
-                tooltip=tooltip,
-                icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
-            ).add_to(map)
+        if pd.notna(row['geores']) and isinstance(row['geores'], str):
+            try:
+                latitude, longitude = map(float, row['geores'].split(','))
+                tooltip = row['APP_Libelle_etablissement']
+                folium.Marker(
+                    location=[latitude, longitude],
+                    popup=row['APP_Libelle_etablissement'],
+                    tooltip=tooltip,
+                    icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
+                ).add_to(map)
+            except ValueError:
+                st.warning(f"Coordonnées invalides pour l'établissement : {row['APP_Libelle_etablissement']}")
 
     return map
 
@@ -80,4 +83,3 @@ if not df_a_ameliorer.empty:
     st.write(selected_site_data)
 else:
     st.write("Aucun établissement à améliorer trouvé dans la période sélectionnée.")
-
