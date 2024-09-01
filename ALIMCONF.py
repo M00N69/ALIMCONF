@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import folium
-import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
@@ -10,8 +9,7 @@ from dateutil.relativedelta import relativedelta
 def get_data():
     url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
     df = pd.read_csv(url, sep=";")
-    # Convertir Date_inspection en datetime
-    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce', format='%Y-%m-%dT%H:%M:%S%z')
+    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], format='%Y-%m-%dT%H:%M:%S%z')
     return df
 
 # Fonction pour convertir les coordonnées en float de manière sûre
@@ -21,28 +19,31 @@ def safe_float(value):
     except (ValueError, AttributeError):
         return None
 
-# Fonction pour créer des graphiques en camembert et en barres
-def create_pie_chart(data, labels, title):
-    fig, ax = plt.subplots()
-    ax.pie(data, labels=labels, autopct='%1.1f%%', startangle=90)
-    ax.axis('equal')
-    plt.title(title)
-    return fig
+# Fonction pour créer la carte interactive
+def create_map(df):
+    map_center = [46.2276, 2.2137]
+    map = folium.Map(location=map_center, zoom_start=6)
 
-def create_bar_chart(data, title, x_label, y_label):
-    fig, ax = plt.subplots()
-    ax.bar(data.index.astype(str), data.values)
-    plt.title(title)
-    plt.xlabel(x_label)
-    plt.ylabel(y_label)
-    return fig
+    for _, row in df.iterrows():
+        if pd.notna(row['geores']) and isinstance(row['geores'], str):
+            coords = row['geores'].split(',')
+            if len(coords) == 2:
+                latitude = safe_float(coords[0])
+                longitude = safe_float(coords[1])
+                if latitude is not None and longitude is not None:
+                    tooltip = row['APP_Libelle_etablissement']
+                    folium.Marker(
+                        location=[latitude, longitude],
+                        popup=row['APP_Libelle_etablissement'],
+                        tooltip=tooltip,
+                        icon=folium.Icon(color='red', icon='exclamation-sign', prefix='fa')
+                    ).add_to(map)
+
+    return map
 
 # Interface utilisateur Streamlit
 st.set_page_config(layout="wide")
 st.title('Données AlimConfiance')
-
-# Navigation avec la sidebar
-page = st.sidebar.selectbox("Choisissez une page", ["Carte des établissements", "Statistiques"])
 
 # Récupérer les données du CSV
 df = get_data()
@@ -66,10 +67,11 @@ selected_end = pd.to_datetime(selected_end).tz_localize('UTC') + relativedelta(m
 # Filtrer les données en fonction de la plage de dates sélectionnée
 df_filtered = df[(df['Date_inspection'] >= selected_start) & (df['Date_inspection'] <= selected_end)]
 
-# Filtres dans la sidebar
+# Filtres pour Synthese_eval_sanit et APP_Libelle_activite_etablissement
 synthese_options = ['A corriger de manière urgente', 'Tous'] + list(df_filtered['Synthese_eval_sanit'].unique())
 selected_synthese = st.sidebar.selectbox("Filtrer par Synthèse d'évaluation sanitaire", synthese_options, index=0)
 
+# Filtre pour la colonne 'filtre'
 filtre_options = ['Tous'] + sorted(df_filtered['filtre'].dropna().unique().tolist())
 selected_filtre = st.sidebar.selectbox("Filtrer par type de contrôle", filtre_options)
 
@@ -79,7 +81,6 @@ selected_ods_type = st.sidebar.selectbox("Filtrer par type d'activité", ods_typ
 activite_options = ['Tous'] + list(df_filtered['APP_Libelle_activite_etablissement'].dropna().unique())
 selected_activite = st.sidebar.selectbox("Filtrer par Activité de l'établissement", activite_options)
 
-# Appliquer les filtres
 if selected_synthese != 'Tous':
     df_filtered = df_filtered[df_filtered['Synthese_eval_sanit'] == selected_synthese]
 
@@ -92,65 +93,65 @@ if selected_ods_type != 'Tous':
 if selected_activite != 'Tous':
     df_filtered = df_filtered[df_filtered['APP_Libelle_activite_etablissement'] == selected_activite]
 
-# Assurer que 'Date_inspection' est bien au format datetime avant d'accéder à .dt
-df_filtered = df_filtered.dropna(subset=['Date_inspection'])
-df_filtered['Date_inspection'] = pd.to_datetime(df_filtered['Date_inspection'], errors='coerce')
+# Afficher la carte interactive
+st.subheader('Carte des établissements')
+map = create_map(df_filtered)
+st.components.v1.html(map._repr_html_(), width=1200, height=600)
 
-# Logique pour afficher la page sélectionnée
-if page == "Carte des établissements":
-    # Afficher la carte interactive
-    st.subheader('Carte des établissements')
-    map = folium.Map(location=[46.2276, 2.2137], zoom_start=6)
+# Afficher les informations détaillées
+st.subheader('Données détaillées des établissements')
+st.dataframe(df_filtered)
 
-    for _, row in df_filtered.iterrows():
-        if pd.notna(row['geores']) and isinstance(row['geores'], str):
-            coords = row['geores'].split(',')
-            if len(coords) == 2:
-                latitude = safe_float(coords[0])
-                longitude = safe_float(coords[1])
-                if latitude is not None and longitude is not None:
-                    tooltip = row['APP_Libelle_etablissement']
-                    folium.Marker(
-                        location=[latitude, longitude],
-                        popup=row['APP_Libelle_etablissement'],
-                        tooltip=tooltip,
-                        icon=folium.Icon(color='red', icon='exclamation-sign', prefix='fa')
-                    ).add_to(map)
+# Permettre de télécharger les données filtrées
+csv = df_filtered.to_csv(index=False)
+st.download_button("Télécharger les données", csv, file_name="data_filtered.csv", mime="text/csv")
 
-    st.components.v1.html(map._repr_html_(), width=1200, height=600)
+# Afficher la fiche complète d'un site sélectionné avec un meilleur design
+if not df_filtered.empty:
+    selected_site = st.selectbox("Sélectionner un site", df_filtered['APP_Libelle_etablissement'])
+    selected_site_data = df_filtered[df_filtered['APP_Libelle_etablissement'] == selected_site].iloc[0]
+    st.subheader('Fiche complète du site sélectionné')
+    
+    # CSS pour un design attrayant et professionnel
+    st.markdown("""
+    <style>
+    .site-info {
+        background-color: #f0f2f6;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .site-info h3 {
+        color: #0e1117;
+        border-bottom: 2px solid #0e1117;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    .site-info p {
+        margin-bottom: 10px;
+    }
+    .site-info strong {
+        color: #0e1117;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    # Afficher les informations détaillées
-    st.subheader('Données détaillées des établissements')
-    st.dataframe(df_filtered)
+    # Fonction pour obtenir une valeur sûre
+    def safe_get(data, key, default="Non spécifié"):
+        return data[key] if key in data and pd.notna(data[key]) else default
 
-    # Permettre de télécharger les données filtrées
-    csv = df_filtered.to_csv(index=False)
-    st.download_button("Télécharger les données", csv, file_name="data_filtered.csv", mime="text/csv")
-
-elif page == "Statistiques":
-    # Assurez-vous que la colonne Date_inspection est correctement convertie en datetime
-    df_filtered['month'] = df_filtered['Date_inspection'].dt.to_period('M')
-
-    # Graphique en camembert pour la Synthèse d'évaluation sanitaire
-    synthese_counts = df_filtered['Synthese_eval_sanit'].value_counts()
-    fig1 = create_pie_chart(synthese_counts.values, synthese_counts.index, "Répartition des Synthèses d'évaluation sanitaire")
-
-    # Graphique en camembert pour les types d'activité
-    activite_counts = df_filtered['ods_type_activite'].value_counts()
-    fig2 = create_pie_chart(activite_counts.values, activite_counts.index, "Répartition des Types d'activité")
-
-    # Graphique en barres pour "A corriger immédiatement" et "A améliorer"
-    correction_counts = df_filtered[df_filtered['Synthese_eval_sanit'].isin(['A corriger immédiatement', 'A améliorer'])].groupby(['month', 'Synthese_eval_sanit']).size().unstack().fillna(0)
-    fig3 = create_bar_chart(correction_counts, "Évaluations par mois", "Mois", "Nombre d'évaluations")
-
-    # Afficher les graphiques
-    st.subheader('Statistiques')
-    col1, col2 = st.columns(2)
-    with col1:
-        st.pyplot(fig1)
-    with col2:
-        st.pyplot(fig2)
-
-    st.subheader('Évaluations mensuelles')
-    st.pyplot(fig3)
+    # Affichage des informations du site
+    st.markdown(f"""
+    <div class="site-info">
+        <h3>{safe_get(selected_site_data, 'APP_Libelle_etablissement')}</h3>
+        <p><strong>Adresse:</strong> {safe_get(selected_site_data, 'Adresse_2_UA')}</p>
+        <p><strong>Code postal:</strong> {safe_get(selected_site_data, 'Code_postal')}</p>
+        <p><strong>Commune:</strong> {safe_get(selected_site_data, 'com_name')}</p>
+        <p><strong>Activité:</strong> {safe_get(selected_site_data, 'APP_Libelle_activite_etablissement')}</p>
+        <p><strong>Date d'inspection:</strong> {selected_site_data['Date_inspection'].strftime('%d/%m/%Y')}</p>
+        <p><strong>Synthèse de l'évaluation sanitaire:</strong> {safe_get(selected_site_data, 'Synthese_eval_sanit')}</p>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.write("Aucun établissement trouvé dans la période sélectionnée.")
 
