@@ -29,12 +29,14 @@ def load_data():
         'ods_type_activite': 'ods_type_activite'
     }, inplace=True)
 
+    # Debug: Voir un aperçu des données avant la conversion
+    st.write("Aperçu des données avant conversion:", df['date_inspection'].head())
+
     # Conversion des dates avec gestion des erreurs
     df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce')
 
-    # Vérifier s'il y a des valeurs non converties
-    if df['date_inspection'].isnull().any():
-        st.warning("Certaines dates n'ont pas pu être converties et seront ignorées.")
+    # Debug: Voir un aperçu des données après la conversion
+    st.write("Aperçu des données après conversion:", df['date_inspection'].head())
 
     # Filtrer les lignes avec des dates valides
     df = df[df['date_inspection'].notna()]
