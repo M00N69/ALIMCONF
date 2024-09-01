@@ -12,6 +12,13 @@ def get_data():
     df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], format='%Y-%m-%dT%H:%M:%S%z')
     return df
 
+# Fonction pour convertir les coordonnées en float de manière sûre
+def safe_float(value):
+    try:
+        return float(value.strip())
+    except (ValueError, AttributeError):
+        return None
+
 # Fonction pour créer la carte interactive
 def create_map(df):
     map_center = [46.2276, 2.2137]
@@ -19,10 +26,11 @@ def create_map(df):
 
     for _, row in df.iterrows():
         if pd.notna(row['geores']) and isinstance(row['geores'], str):
-            try:
-                coords = row['geores'].split(',')
-                if len(coords) == 2:
-                    latitude, longitude = map(float, coords)
+            coords = row['geores'].split(',')
+            if len(coords) == 2:
+                latitude = safe_float(coords[0])
+                longitude = safe_float(coords[1])
+                if latitude is not None and longitude is not None:
                     tooltip = row['APP_Libelle_etablissement']
                     folium.Marker(
                         location=[latitude, longitude],
@@ -31,9 +39,9 @@ def create_map(df):
                         icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
                     ).add_to(map)
                 else:
-                    st.warning(f"Format de coordonnées invalide pour l'établissement : {row['APP_Libelle_etablissement']}")
-            except ValueError:
-                st.warning(f"Coordonnées invalides pour l'établissement : {row['APP_Libelle_etablissement']}")
+                    st.warning(f"Coordonnées invalides pour l'établissement : {row['APP_Libelle_etablissement']}")
+            else:
+                st.warning(f"Format de coordonnées invalide pour l'établissement : {row['APP_Libelle_etablissement']}")
         else:
             st.warning(f"Données de géolocalisation manquantes pour l'établissement : {row['APP_Libelle_etablissement']}")
 
