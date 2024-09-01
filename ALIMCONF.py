@@ -9,7 +9,6 @@ CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/expor
 # Fonction pour charger les données depuis le CSV
 @st.cache_data
 def load_data():
-    # Chargement des données
     df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
 
     # Renommer les colonnes pour correspondre à ce qui est attendu
@@ -29,16 +28,10 @@ def load_data():
         'ods_type_activite': 'ods_type_activite'
     }, inplace=True)
 
-    # Debug: Voir un aperçu des données avant la conversion
-    st.write("Aperçu des données avant conversion:", df['date_inspection'].head())
-
     # Conversion des dates avec gestion des erreurs
     df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce')
 
-    # Debug: Voir un aperçu des données après la conversion
-    st.write("Aperçu des données après conversion:", df['date_inspection'].head())
-
-    # Filtrer les lignes avec des dates valides
+    # Filtrer les lignes avec des dates valides uniquement
     df = df[df['date_inspection'].notna()]
 
     # Extraire l'année et le mois pour faciliter le filtrage
