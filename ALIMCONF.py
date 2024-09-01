@@ -79,7 +79,8 @@ required_columns = [
     'Agrement', 
     'reg_name', 
     'dep_name', 
-    'filtre'
+    'filtre',
+    'ods_type_activite'  # Ajout du nouveau filtre
 ]
 
 # Check for missing columns
@@ -95,6 +96,10 @@ else:
     filtre_options = ['Tous'] + sorted(df_filtered['filtre'].dropna().unique().tolist())
     selected_filtre = st.selectbox("Filtrer par type de contrôle", filtre_options)
 
+    # Filtre pour la colonne 'ods_type_activite'
+    ods_type_options = ['Tous'] + sorted(df_filtered['ods_type_activite'].dropna().unique().tolist())
+    selected_ods_type = st.selectbox("Filtrer par type d'activité", ods_type_options)
+
     activite_options = ['Tous'] + list(df_filtered['APP_Libelle_activite_etablissement'].dropna().unique())
     selected_activite = st.selectbox("Filtrer par Activité de l'établissement", activite_options)
 
@@ -103,6 +108,9 @@ else:
 
     if selected_filtre != 'Tous':
         df_filtered = df_filtered[df_filtered['filtre'] == selected_filtre]
+
+    if selected_ods_type != 'Tous':
+        df_filtered = df_filtered[df_filtered['ods_type_activite'] == selected_ods_type]
 
     if selected_activite != 'Tous':
         df_filtered = df_filtered[df_filtered['APP_Libelle_activite_etablissement'] == selected_activite]
@@ -164,7 +172,9 @@ else:
             <p><strong>Activité:</strong> {safe_get(selected_site_data, 'APP_Libelle_activite_etablissement')}</p>
             <p><strong>Date d'inspection:</strong> {selected_site_data['Date_inspection'].strftime('%d/%m/%Y')}</p>
             <p><strong>Synthèse de l'évaluation sanitaire:</strong> {safe_get(selected_site_data, 'Synthese_eval_sanit')}</p>
+            <p><strong>Type d'activité:</strong> {safe_get(selected_site_data, 'ods_type_activite')}</p>
         </div>
         """, unsafe_allow_html=True)
     else:
         st.write("Aucun établissement trouvé dans la période sélectionnée.")
+
