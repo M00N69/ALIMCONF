@@ -45,7 +45,7 @@ st.markdown(
 )
 
 # --- Logo and Link in Sidebar ---
-    st.sidebar.markdown(
+st.sidebar.markdown(
         f"""
         <div class="sidebar-logo-container">
             <a href="https://www.visipilot.com" target="_blank">
@@ -53,7 +53,7 @@ st.markdown(
             </a>
         </div>
         """, unsafe_allow_html=True
-    )
+)
 
 
 # Fonction pour récupérer les données du CSV avec mise en cache
