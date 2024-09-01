@@ -11,29 +11,19 @@ CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/expor
 def load_data():
     df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
 
-    # Renommer les colonnes pour correspondre à ce qui est attendu dans le code
-    df.rename(columns={
-        'APP_Libelle_etablissement': 'app_libelle_etablissement',
-        'Date_inspection': 'date_inspection',
-        'Libelle_commune': 'libelle_commune',
-        'SIRET': 'siret',
-        'Adresse_2_UA': 'adresse_2_ua',
-        'Code_postal': 'code_postal',
-        'Libelle_commune': 'libelle_commune',
-        'Numero_inspection': 'numero_inspection',
-        'APP_Libelle_activite_etablissement': 'app_libelle_activite_etablissement',
-        'Synthese_eval_sanit': 'synthese_eval_sanit',
-        'APP_Code_synthese_eval_sanit': 'app_code_synthese_eval_sanit',
-        'geores': 'geores',
-        'filtre': 'filtre',
-        'ods_type_activite': 'ods_type_activite'
-    }, inplace=True)
+    # Convertir la colonne 'Date_inspection' en datetime et extraire uniquement la date
+    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce')
 
-    # Convertir la colonne 'date_inspection' en datetime et extraire uniquement la date
-    df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce').dt.date
+    # Vérifier s'il y a des valeurs non converties
+    if df['Date_inspection'].isnull().any():
+        st.warning("Certaines dates n'ont pas pu être converties en datetime:")
+        st.write(df[df['Date_inspection'].isnull()])
 
     # Supprimer les lignes où la conversion en datetime a échoué
-    df = df.dropna(subset=['date_inspection'])
+    df = df.dropna(subset=['Date_inspection'])
+
+    # Extraire uniquement la date (sans l'heure)
+    df['Date_inspection'] = df['Date_inspection'].dt.date
 
     return df
 
@@ -43,13 +33,13 @@ df = load_data()
 
 if not df.empty:
     # Filtrer sur le dernier mois et "A améliorer"
-    last_month = pd.to_datetime(df['date_inspection'].max()).to_period('M').to_timestamp()
-    df_filtered = df[(pd.to_datetime(df['date_inspection']) >= last_month) & (df['synthese_eval_sanit'] == 'A améliorer')]
+    last_month = pd.to_datetime(df['Date_inspection'].max()).to_period('M').to_timestamp()
+    df_filtered = df[(pd.to_datetime(df['Date_inspection']) >= last_month) & (df['Synthese_eval_sanit'] == 'A améliorer')]
 
     # Ajout des filtres dans la barre latérale
     st.sidebar.title('Filtres supplémentaires')
 
-    activite_etablissement_unique = df_filtered['app_libelle_activite_etablissement'].dropna().unique()
+    activite_etablissement_unique = df_filtered['APP_Libelle_activite_etablissement'].dropna().unique()
     activite_etablissement = st.sidebar.multiselect(
         "Activité de l'établissement", sorted(activite_etablissement_unique)
     )
@@ -68,7 +58,7 @@ if not df.empty:
 
     # Appliquer les filtres supplémentaires
     if activite_etablissement:
-        df_filtered = df_filtered[df_filtered['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
+        df_filtered = df_filtered[df_filtered['APP_Libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
 
     if filtre_categorie:
         df_filtered = df_filtered[df_filtered['filtre'].apply(lambda x: any(item in x for item in filtre_categorie))]
@@ -77,21 +67,22 @@ if not df.empty:
         df_filtered = df_filtered[df_filtered['ods_type_activite'].isin(ods_type_activite)]
 
     if nom_etablissement:
-        df_filtered = df_filtered[df_filtered['app_libelle_etablissement'].str.contains(nom_etablissement, case=False)]
+        df_filtered = df_filtered[df_filtered['APP_Libelle_etablissement'].str.contains(nom_etablissement, case=False)]
 
     if adresse:
-        df_filtered = df_filtered[df_filtered['adresse_2_ua'].str.contains(adresse, case=False)]
+        df_filtered = df_filtered[df_filtered['Adresse_2_UA'].str.contains(adresse, case=False)]
 
     if not df_filtered.empty:
         # Afficher la carte interactive
         st.subheader('Carte des établissements "A améliorer" (Dernier Mois)')
         map = folium.Map(location=[46.2276, 2.2137], zoom_start=6)
         for _, row in df_filtered.iterrows():
-            if row['geores'] is not None:
+            if pd.notnull(row['geores']):
+                latitude, longitude = map(float, row['geores'].split(','))
                 folium.Marker(
-                    location=[row['geores']['lat'], row['geores']['lon']],
-                    popup=row['app_libelle_etablissement'],
-                    tooltip=row['app_libelle_etablissement'],
+                    location=[latitude, longitude],
+                    popup=row['APP_Libelle_etablissement'],
+                    tooltip=row['APP_Libelle_etablissement'],
                     icon=folium.Icon(color='red', icon='star', prefix='fa')
                 ).add_to(map)
 
@@ -108,4 +99,3 @@ if not df.empty:
         st.warning("Aucun établissement trouvé avec les critères spécifiés.")
 else:
     st.error("Aucune donnée disponible.")
-
