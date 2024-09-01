@@ -1,21 +1,13 @@
 import streamlit as st
 import pandas as pd
-import requests
 import folium
 from datetime import datetime
 
 # Fonction pour récupérer les données du fichier CSV
-def get_data(use_csv=True):
-    if use_csv:
-        url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
-        df = pd.read_csv(url, sep=";")
-    else:
-        st.error("Impossible de récupérer les données : seul le mode CSV est disponible.")
-        return None
-
-    # Convertir les dates en format datetime
+def get_data():
+    url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
+    df = pd.read_csv(url, sep=";")
     df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce')
-
     return df
 
 # Fonction pour créer la carte interactive
@@ -24,15 +16,19 @@ def create_map(df):
     map = folium.Map(location=map_center, zoom_start=6)
 
     for _, row in df.iterrows():
-        if pd.notna(row['geores']):
-            latitude, longitude = map(float, row['geores'].split(','))
-            tooltip = row['APP_Libelle_etablissement']
-            folium.Marker(
-                location=[latitude, longitude],
-                popup=row['APP_Libelle_etablissement'],
-                tooltip=tooltip,
-                icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
-            ).add_to(map)
+        geores = row.get('geores')
+        if pd.notna(geores) and isinstance(geores, str) and ',' in geores:
+            try:
+                latitude, longitude = map(float, geores.split(','))
+                tooltip = row['APP_Libelle_etablissement']
+                folium.Marker(
+                    location=[latitude, longitude],
+                    popup=row['APP_Libelle_etablissement'],
+                    tooltip=tooltip,
+                    icon=folium.Icon(color='green' if row['Synthese_eval_sanit'] == 'Très satisfaisant' else 'orange' if row['Synthese_eval_sanit'] == 'Satisfaisant' else 'red' if row['Synthese_eval_sanit'] == 'A améliorer' else 'black', icon='star', prefix='fa')
+                ).add_to(map)
+            except ValueError:
+                st.warning(f"Les coordonnées {geores} ne sont pas valides pour l'établissement {row['APP_Libelle_etablissement']}.")
 
     return map
 
@@ -45,6 +41,23 @@ st.title('Données AlimConfiance')
 df = get_data()
 
 if df is not None:
+    # Sélecteur de mois
+    st.sidebar.title('Sélection de la période')
+    
+    start_date = datetime(2023, 9, 1)
+    today = datetime.today()
+    
+    months = pd.date_range(start=start_date, end=today, freq='MS').strftime("%B %Y").tolist()
+    selected_month = st.sidebar.selectbox("Sélectionnez un mois", months)
+    
+    # Convertir le mois sélectionné en date de début et de fin
+    selected_date = datetime.strptime(selected_month, "%B %Y")
+    start_date = selected_date
+    end_date = selected_date + pd.DateOffset(months=1) - pd.DateOffset(days=1)
+    
+    # Filtrer le DataFrame par mois sélectionné
+    df = df[(df['Date_inspection'] >= start_date) & (df['Date_inspection'] <= end_date)]
+
     # Filtrage
     st.sidebar.title('Filtrage')
 
