@@ -1,48 +1,33 @@
 import streamlit as st
 import pandas as pd
-import requests
 import folium
 from streamlit_folium import folium_static
 
-# Fonction pour récupérer les données en segments en utilisant la date comme critère
-def get_data_segmented(year, month=None):
-    base_url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?timezone=Europe%2FBerlin&lang=fr&refine=date_inspection%3A%22{year}"
-    if month is not None:
-        base_url += f"-{month:02}"
-    base_url += "%22"
-    
-    records = []
-    start_index = 0
-    rows_fetched = 100  # L'API retourne par défaut 100 lignes
+# URL du fichier CSV complet
+CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
 
-    while rows_fetched == 100:
-        url = f"{base_url}&start={start_index}&rows=100"
-        response = requests.get(url)
-        data = response.json()
-        
-        if 'results' in data:
-            records.extend(data['results'])
-            rows_fetched = len(data['results'])
-            start_index += rows_fetched
-        else:
-            st.error("Erreur : format de réponse JSON incorrect.")
-            break
-    
-    if records:
-        df = pd.DataFrame(records)
-        if 'date_inspection' in df.columns:
-            df['date_inspection'] = pd.to_datetime(df['date_inspection'])
-        else:
-            st.error("Erreur : la colonne 'date_inspection' est manquante.")
-            return None
-        return df
-    else:
-        return None
+# Fonction pour charger les données depuis le CSV
+@st.cache_data
+def load_data():
+    df = pd.read_csv(CSV_URL, delimiter=';', parse_dates=['Date d\'inspection'])
+    df.rename(columns={
+        'Date d\'inspection': 'date_inspection',
+        'Libellé de l\'établissement': 'app_libelle_etablissement',
+        'Synthèse de l\'évaluation sanitaire': 'synthese_eval_sanit',
+        'Activité de l\'établissement': 'app_libelle_activite_etablissement',
+        'Type d\'activité': 'ods_type_activite',
+        'Adresse 2 (UA)': 'adresse_2_ua',
+        'Coordonnées géographiques': 'geores',
+        'Catégorie': 'filtre'
+    }, inplace=True)
+    df['geores'] = df['geores'].apply(lambda x: {'lat': float(x.split(',')[0]), 'lon': float(x.split(',')[1])} if pd.notnull(x) else None)
+    return df
 
-# Interface utilisateur Streamlit
+# Charger les données
 st.title('Données AlimConfiance')
+df = load_data()
 
-# Slider pour sélectionner la plage de dates
+# Filtrer par plage de dates
 start_date, end_date = st.sidebar.date_input(
     "Sélectionnez la période d'inspection",
     value=[pd.to_datetime("2023-01-01"), pd.to_datetime("2024-12-31")],
@@ -50,40 +35,21 @@ start_date, end_date = st.sidebar.date_input(
     max_value=pd.to_datetime("2024-12-31")
 )
 
-# Récupérer les données segmentées par mois ou trimestre
-dfs = []
-for single_date in pd.date_range(start=start_date, end=end_date, freq='M'):
-    year = single_date.year
-    month = single_date.month
-    df = get_data_segmented(year, month)
-    if df is not None:
-        dfs.append(df)
+df = df[(df['date_inspection'] >= pd.to_datetime(start_date)) & (df['date_inspection'] <= pd.to_datetime(end_date))]
 
-# Concaténation des données pour tous les segments sélectionnés
-if dfs:
-    df = pd.concat(dfs, ignore_index=True)
-else:
-    st.error("Aucune donnée disponible pour la période sélectionnée.")
-    df = None
-
-if df is not None:
+if not df.empty:
     # Filtrage supplémentaire
     st.sidebar.title('Filtrage')
 
     all_levels = ['Tous', 'Très satisfaisant', 'Satisfaisant', 'A améliorer', 'A corriger de manière urgente']
     niveau_resultat = st.sidebar.selectbox("Niveau de résultat", all_levels)
 
-    activite_etablissement_unique = set()
-    for activites in df['app_libelle_activite_etablissement']:
-        activite_etablissement_unique.update(activites)
+    activite_etablissement_unique = df['app_libelle_activite_etablissement'].dropna().unique()
     activite_etablissement = st.sidebar.multiselect(
         "Activité de l'établissement", sorted(activite_etablissement_unique)
     )
 
-    filtre_categorie_unique = set()
-    for filtres in df['filtre']:
-        if isinstance(filtres, list):
-            filtre_categorie_unique.update(filtres)
+    filtre_categorie_unique = df['filtre'].dropna().unique()
     filtre_categorie = st.sidebar.multiselect(
         "Catégorie de filtre", sorted(filtre_categorie_unique)
     )
@@ -103,7 +69,7 @@ if df is not None:
         df = df[df['app_libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
 
     if filtre_categorie:
-        df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if isinstance(x, list) else False)]
+        df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie))]
 
     if ods_type_activite:
         df = df[df['ods_type_activite'].isin(ods_type_activite)]
@@ -142,4 +108,5 @@ if df is not None:
     csv = df.to_csv(index=False)
     st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
 else:
-    st.error("Impossible de récupérer les données. Veuillez réessayer plus tard.")
+    st.error("Aucune donnée disponible pour la période sélectionnée.")
+
