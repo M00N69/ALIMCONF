@@ -122,14 +122,20 @@ if not df_filtered.empty:
     </style>
     """, unsafe_allow_html=True)
 
+    # Fonction pour obtenir une valeur sûre
+    def safe_get(data, key, default="Non spécifié"):
+        return data[key] if key in data and pd.notna(data[key]) else default
+
     # Affichage des informations du site
     st.markdown(f"""
     <div class="site-info">
-        <h3>{selected_site_data['APP_Libelle_etablissement']}</h3>
-        <p><strong>Adresse:</strong> {selected_site_data['Adresse_2_UA']}, {selected_site_data['Code_postal_UA']} {selected_site_data['Libelle_commune_UA']}</p>
-        <p><strong>Activité:</strong> {selected_site_data['APP_Libelle_activite_etablissement']}</p>
+        <h3>{safe_get(selected_site_data, 'APP_Libelle_etablissement')}</h3>
+        <p><strong>Adresse:</strong> {safe_get(selected_site_data, 'Adresse_2_UA')}</p>
+        <p><strong>Code postal:</strong> {safe_get(selected_site_data, 'Code_postal_UA')}</p>
+        <p><strong>Commune:</strong> {safe_get(selected_site_data, 'Libelle_commune_UA')}</p>
+        <p><strong>Activité:</strong> {safe_get(selected_site_data, 'APP_Libelle_activite_etablissement')}</p>
         <p><strong>Date d'inspection:</strong> {selected_site_data['Date_inspection'].strftime('%d/%m/%Y')}</p>
-        <p><strong>Synthèse de l'évaluation sanitaire:</strong> {selected_site_data['Synthese_eval_sanit']}</p>
+        <p><strong>Synthèse de l'évaluation sanitaire:</strong> {safe_get(selected_site_data, 'Synthese_eval_sanit')}</p>
     </div>
     """, unsafe_allow_html=True)
 else:
