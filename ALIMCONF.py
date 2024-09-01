@@ -83,21 +83,31 @@ def create_map(df):
                 latitude = safe_float(coords[0])
                 longitude = safe_float(coords[1])
                 if latitude is not None and longitude is not None:
-                    tooltip = row['APP_Libelle_etablissement']
-                    # Customize the icon with better visibility
+                    site_name = row['APP_Libelle_etablissement']
+                    date_inspection = row['Date_inspection'].strftime('%d/%m/%Y') if pd.notna(row['Date_inspection']) else "Date non spécifiée"
+
+                    # Custom HTML content for the popup
+                    popup_html = f"""
+                    <div style="font-family: Arial; color: #333;">
+                        <h4 style="margin-bottom: 5px;">{site_name}</h4>
+                        <p style="margin: 0;">Date d'inspection: <strong>{date_inspection}</strong></p>
+                    </div>
+                    """
+
                     folium.Marker(
                         location=[latitude, longitude],
-                        popup=row['APP_Libelle_etablissement'],
-                        tooltip=tooltip,
+                        popup=folium.Popup(popup_html, max_width=300),
+                        tooltip=site_name,
                         icon=folium.Icon(
                             color='white',  # Background color
                             icon_color='red',  # Icon color
-                            icon='exclamation-triangle',  # Different FontAwesome icon for better visibility
+                            icon='exclamation-triangle',  # Icon for better visibility
                             prefix='fa'
                         )
                     ).add_to(map)
 
     return map
+
 
 # Fonction pour créer des graphiques en camembert et en barres
 def create_pie_chart(data, labels, title):
