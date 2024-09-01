@@ -29,10 +29,10 @@ def load_data():
         'ods_type_activite': 'ods_type_activite'
     }, inplace=True)
 
-    # Convertir la colonne 'date_inspection' en datetime
-    df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce')
+    # Convertir la colonne 'date_inspection' en datetime et extraire la date uniquement
+    df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce').dt.date
 
-    # Supprimer les lignes avec des valeurs manquantes dans 'date_inspection'
+    # Supprimer les lignes où la conversion en datetime a échoué
     df = df.dropna(subset=['date_inspection'])
 
     return df
@@ -43,8 +43,8 @@ df = load_data()
 
 if not df.empty:
     # Filtrer sur le dernier mois et "A améliorer"
-    last_month = df['date_inspection'].max().to_period('M').to_timestamp()
-    df_filtered = df[(df['date_inspection'] >= last_month) & (df['synthese_eval_sanit'] == 'A améliorer')]
+    last_month = pd.to_datetime(df['date_inspection'].max()).to_period('M').to_timestamp()
+    df_filtered = df[(pd.to_datetime(df['date_inspection']) >= last_month) & (df['synthese_eval_sanit'] == 'A améliorer')]
 
     # Ajout des filtres dans la barre latérale
     st.sidebar.title('Filtres supplémentaires')
