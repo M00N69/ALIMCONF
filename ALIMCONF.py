@@ -101,7 +101,7 @@ def create_map(df):
                         icon=folium.Icon(
                             color='white',  # Background color
                             icon_color='red',  # Icon color
-                            icon='exclamation-triangle',  # Icon for better visibility
+                            icon='fa-solid fa-circle-exclamation',  # Icon for better visibility
                             prefix='fa'
                         )
                     ).add_to(map)
