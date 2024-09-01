@@ -2,36 +2,20 @@ import streamlit as st
 import pandas as pd
 import requests
 import folium
-from datetime import datetime, timedelta
+from datetime import datetime
 
-# Fonction pour récupérer les données de l'API ou du fichier CSV
-def get_data(start_date, end_date, use_csv=False):
+# Fonction pour récupérer les données du fichier CSV
+def get_data(use_csv=True):
     if use_csv:
         url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/csv?lang=fr&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B"
         df = pd.read_csv(url, sep=";")
     else:
-        url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?limit=100&refine=Date_inspection%3A%22{start_date}%22%3A%22{end_date}%22&refine=synthese_eval_sanit%3A%22A%20am%C3%A9liorer%22"
+        st.error("Impossible de récupérer les données : seul le mode CSV est disponible.")
+        return None
 
-        all_data = []
-        offset = 0
+    # Convertir les dates en format datetime
+    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'], errors='coerce')
 
-        while True:
-            response = requests.get(url + f"&offset={offset}")
-            data = response.json()
-
-            if 'results' in data:
-                all_data.extend(data['results'])
-                offset += 100
-            else:
-                st.error("Erreur : format de réponse JSON incorrect.")
-                return None
-
-            if len(data['results']) < 100:
-                break
-
-        df = pd.DataFrame(all_data)
-
-    df['Date_inspection'] = pd.to_datetime(df['Date_inspection'])
     return df
 
 # Fonction pour créer la carte interactive
@@ -40,7 +24,7 @@ def create_map(df):
     map = folium.Map(location=map_center, zoom_start=6)
 
     for _, row in df.iterrows():
-        if row['geores'] is not None:
+        if pd.notna(row['geores']):
             latitude, longitude = map(float, row['geores'].split(','))
             tooltip = row['APP_Libelle_etablissement']
             folium.Marker(
@@ -57,11 +41,8 @@ st.set_page_config(layout="wide")  # Set page layout to wide
 
 st.title('Données AlimConfiance')
 
-# Récupérer les données de l'API ou du fichier CSV
-use_csv = st.sidebar.checkbox("Utiliser le fichier CSV")
-start_date = st.sidebar.date_input("Date de début", datetime(2023, 9, 1))
-end_date = st.sidebar.date_input("Date de fin", datetime.now())
-df = get_data(start_date, end_date, use_csv)
+# Récupérer les données du fichier CSV
+df = get_data()
 
 if df is not None:
     # Filtrage
@@ -72,18 +53,15 @@ if df is not None:
 
     niveau_resultat = st.sidebar.selectbox("Niveau de résultat", all_levels)
 
-    activite_etablissement_unique = set()
-    for activites in df['APP_Libelle_activite_etablissement']:
-        activite_etablissement_unique.update(activites)
-
+    activite_etablissement_unique = df['APP_Libelle_activite_etablissement'].unique()
     activite_etablissement = st.sidebar.multiselect(
-        "Activité de l'établissement", list(activite_etablissement_unique)
+        "Activité de l'établissement", activite_etablissement_unique
     )
 
     filtre_categorie_unique = set()
-    for filtres in df['filtre']:
-        if isinstance(filtres, list):
-            filtre_categorie_unique.update(filtres)
+    for filtres in df['filtre'].dropna():
+        if isinstance(filtres, str):
+            filtre_categorie_unique.update(filtres.split(','))
 
     filtre_categorie = st.sidebar.multiselect(
         "Catégorie de filtre", list(filtre_categorie_unique)
@@ -101,10 +79,10 @@ if df is not None:
         df = df[df['Synthese_eval_sanit'] == niveau_resultat]
 
     if activite_etablissement:
-        df = df[df['APP_Libelle_activite_etablissement'].apply(lambda x: any(item in x for item in activite_etablissement))]
+        df = df[df['APP_Libelle_activite_etablissement'].isin(activite_etablissement)]
 
     if filtre_categorie:
-        df = df[df['filtre'].apply(lambda x: any(item in x for item in filtre_categorie) if isinstance(x, list) else False)]
+        df = df[df['filtre'].apply(lambda x: any(item in x.split(',') for item in filtre_categorie) if isinstance(x, str) else False)]
 
     if ods_type_activite:
         df = df[df['ods_type_activite'].isin(ods_type_activite)]
