@@ -118,6 +118,10 @@ def create_pie_chart(data, labels, title):
     return fig
 
 def create_bar_chart(data, title, x_label, y_label):
+    # Ensure the data is numeric and replace NaN values with 0
+    data = data.fillna(0)
+    data = data.astype(float)  # Ensure all values are float for the bar chart
+
     fig, ax = plt.subplots()
     ax.bar(data.index.astype(str), data.values)
     plt.title(title)
