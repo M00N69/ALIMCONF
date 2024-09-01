@@ -9,18 +9,35 @@ CSV_URL = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/expor
 # Fonction pour charger les données depuis le CSV
 @st.cache_data
 def load_data():
-    df = pd.read_csv(CSV_URL, delimiter=';', parse_dates=['Date d\'inspection'])
+    # Chargement des données sans parse_dates pour commencer
+    df = pd.read_csv(CSV_URL, delimiter=';', encoding='utf-8')
+
+    # Afficher les premières lignes pour vérifier la structure
+    st.write("Aperçu des données chargées :", df.head())
+
+    # Renommer les colonnes pour correspondre à ce qui est attendu
     df.rename(columns={
-        'Date d\'inspection': 'date_inspection',
-        'Libellé de l\'établissement': 'app_libelle_etablissement',
-        'Synthèse de l\'évaluation sanitaire': 'synthese_eval_sanit',
-        'Activité de l\'établissement': 'app_libelle_activite_etablissement',
-        'Type d\'activité': 'ods_type_activite',
-        'Adresse 2 (UA)': 'adresse_2_ua',
-        'Coordonnées géographiques': 'geores',
-        'Catégorie': 'filtre'
+        'Date_inspection': 'date_inspection',
+        'Libelle_commune': 'libelle_commune',
+        'SIRET': 'siret',
+        'Adresse_2_UA': 'adresse_2_ua',
+        'Code_postal': 'code_postal',
+        'Libelle_commune': 'libelle_commune',
+        'Numero_inspection': 'numero_inspection',
+        'APP_Libelle_activite_etablissement': 'app_libelle_activite_etablissement',
+        'Synthese_eval_sanit': 'synthese_eval_sanit',
+        'APP_Code_synthese_eval_sanit': 'app_code_synthese_eval_sanit',
+        'geores': 'geores',
+        'filtre': 'filtre',
+        'ods_type_activite': 'ods_type_activite'
     }, inplace=True)
+
+    # Conversion des dates
+    df['date_inspection'] = pd.to_datetime(df['date_inspection'])
+
+    # Conversion des coordonnées géographiques en dictionnaires
     df['geores'] = df['geores'].apply(lambda x: {'lat': float(x.split(',')[0]), 'lon': float(x.split(',')[1])} if pd.notnull(x) else None)
+
     return df
 
 # Charger les données
@@ -109,4 +126,3 @@ if not df.empty:
     st.download_button("Télécharger les données", csv, file_name="data.csv", mime="text/csv")
 else:
     st.error("Aucune donnée disponible pour la période sélectionnée.")
-
