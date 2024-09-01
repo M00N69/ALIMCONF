@@ -29,8 +29,15 @@ def load_data():
         'ods_type_activite': 'ods_type_activite'
     }, inplace=True)
 
-    # Conversion des dates
+    # Conversion des dates avec gestion des erreurs
     df['date_inspection'] = pd.to_datetime(df['date_inspection'], errors='coerce')
+
+    # Vérifier s'il y a des valeurs non converties
+    if df['date_inspection'].isnull().any():
+        st.warning("Certaines dates n'ont pas pu être converties et seront ignorées.")
+
+    # Filtrer les lignes avec des dates valides
+    df = df[df['date_inspection'].notna()]
 
     # Extraire l'année et le mois pour faciliter le filtrage
     df['year_month'] = df['date_inspection'].dt.to_period('M')
