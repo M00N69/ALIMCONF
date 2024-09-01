@@ -4,56 +4,44 @@ import requests
 import folium
 from streamlit_folium import folium_static
 
-# Fonction pour récupérer les données de l'API
-def get_data_from_api(year, month=None):
-    url = f"https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/records?refine=date_inspection%3A%22{year}%22"
-    if month is not None:
-        url += f"&refine=date_inspection%3A%22{year}-{month:02}%22"
+# Fonction pour récupérer les données complètes depuis l'API JSON
+def get_data_from_json():
+    url = "https://dgal.opendatasoft.com/api/explore/v2.1/catalog/datasets/export_alimconfiance/exports/json?lang=fr&timezone=Europe%2FBerlin"
     response = requests.get(url)
-    data = response.json()
+    
+    if response.status_code == 200:
+        data = response.json()
+        df = pd.DataFrame(data)
+        
+        if 'date_inspection' in df.columns:
+            df['date_inspection'] = pd.to_datetime(df['date_inspection'])
+        else:
+            st.error("Erreur : la colonne 'date_inspection' est manquante.")
+            return None
 
-    if 'results' in data:
-        df = pd.DataFrame(data['results'])
+        return df
     else:
-        st.error("Erreur : format de réponse JSON incorrect.")
+        st.error("Erreur : Impossible de récupérer les données JSON.")
         return None
-
-    if 'date_inspection' in df.columns:
-        df['date_inspection'] = pd.to_datetime(df['date_inspection'])
-    else:
-        st.error("Erreur : la colonne 'date_inspection' est manquante.")
-        return None
-
-    return df
 
 # Interface utilisateur Streamlit
 st.title('Données AlimConfiance')
 
-# Slider pour sélectionner l'année et le mois
-start_year, end_year = st.sidebar.slider(
-    "Sélectionnez la période d'inspection (année)",
-    min_value=2015,
-    max_value=2024,
-    value=(2023, 2024),
-    step=1
-)
-
-# Récupérer les données de l'API pour chaque année de la période
-dfs = []
-for year in range(start_year, end_year + 1):
-    df = get_data_from_api(year)
-    if df is not None:
-        dfs.append(df)
-
-# Concatenate data for all selected years
-if dfs:
-    df = pd.concat(dfs, ignore_index=True)
-else:
-    st.error("Aucune donnée disponible pour la période sélectionnée.")
-    df = None
+# Récupérer toutes les données depuis l'API JSON
+df = get_data_from_json()
 
 if df is not None:
-    # Filtrage
+    # Filtrage par plage de dates
+    start_date, end_date = st.sidebar.date_input(
+        "Sélectionnez la période d'inspection",
+        value=[pd.to_datetime("2023-01-01"), pd.to_datetime("2024-12-31")],
+        min_value=pd.to_datetime("2015-01-01"),
+        max_value=pd.to_datetime("2024-12-31")
+    )
+    
+    df = df[(df['date_inspection'] >= pd.to_datetime(start_date)) & (df['date_inspection'] <= pd.to_datetime(end_date))]
+
+    # Filtrage supplémentaire
     st.sidebar.title('Filtrage')
 
     all_levels = ['Tous', 'Très satisfaisant', 'Satisfaisant', 'A améliorer', 'A corriger de manière urgente']
