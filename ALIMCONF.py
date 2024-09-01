@@ -55,6 +55,9 @@ if df is not None:
     start_date = selected_date
     end_date = selected_date + pd.DateOffset(months=1) - pd.DateOffset(days=1)
     
+    # Assurez-vous que Date_inspection est correctement parsé en datetime et filtré les valeurs NaT
+    df = df.dropna(subset=['Date_inspection'])
+    
     # Filtrer le DataFrame par mois sélectionné
     df = df[(df['Date_inspection'] >= start_date) & (df['Date_inspection'] <= end_date)]
 
@@ -126,4 +129,5 @@ if df is not None:
     st.write(selected_site_data)
 else:
     st.error("Impossible de récupérer les données. Veuillez réessayer plus tard.")
+
 
