@@ -76,9 +76,9 @@ def get_icon_color(synthese_eval_sanit):
         return 'green'
     elif synthese_eval_sanit == 'Satisfaisant':
         return 'orange'
-    elif synthese_eval_sanit == 'À améliorer':
+    elif synthese_eval_sanit == 'A améliorer':
         return 'red'
-    elif synthese_eval_sanit == 'À corriger de manière urgente':
+    elif synthese_eval_sanit == 'A corriger de manière urgente':
         return 'black'
     else:
         return 'gray'  # Couleur par défaut si aucune correspondance
