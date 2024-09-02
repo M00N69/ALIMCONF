@@ -71,9 +71,22 @@ def safe_float(value):
     except (ValueError, AttributeError):
         return None
 
+def get_icon_color(synthese_eval_sanit):
+    if synthese_eval_sanit == 'Très satisfaisant':
+        return 'green'
+    elif synthese_eval_sanit == 'Satisfaisant':
+        return 'orange'
+    elif synthese_eval_sanit == 'À améliorer':
+        return 'red'
+    elif synthese_eval_sanit == 'À corriger de manière urgente':
+        return 'black'
+    else:
+        return 'gray'  # Couleur par défaut si aucune correspondance
+
+
 # Fonction pour créer la carte interactive
 def create_map(df):
-    map_center = [46.2276, 2.2137]
+    map_center = [46.2276, 2.2137]  # Centre de la France
     map = folium.Map(location=map_center, zoom_start=6)
 
     for _, row in df.iterrows():
@@ -86,7 +99,10 @@ def create_map(df):
                     site_name = row['APP_Libelle_etablissement']
                     date_inspection = row['Date_inspection'].strftime('%d/%m/%Y') if pd.notna(row['Date_inspection']) else "Date non spécifiée"
 
-                    # Custom HTML content for the popup
+                    # Déterminer la couleur de l'icône en fonction de la synthèse
+                    icon_color = get_icon_color(row['Synthese_eval_sanit'])
+
+                    # Contenu HTML pour la popup
                     popup_html = f"""
                     <div style="font-family: Arial; color: #333;">
                         <h4 style="margin-bottom: 5px;">{site_name}</h4>
@@ -99,14 +115,15 @@ def create_map(df):
                         popup=folium.Popup(popup_html, max_width=300),
                         tooltip=site_name,
                         icon=folium.Icon(
-                            color='white',  # Background color
-                            icon_color='red',  # Icon color
-                            icon='fa-solid fa-circle-exclamation',  # Icon for better visibility
+                            color=icon_color,  # Utilisation de la couleur déterminée
+                            icon_color='white',  # Couleur de l'icône, souvent blanc pour un bon contraste
+                            icon='fa-solid fa-circle-exclamation',  # Icône pour meilleure visibilité
                             prefix='fa'
                         )
                     ).add_to(map)
 
     return map
+
 
 
 # Fonction pour créer des graphiques en camembert et en barres
